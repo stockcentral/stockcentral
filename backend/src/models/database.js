@@ -217,6 +217,10 @@ const initDB = async () => {
                       "ALTER TABLE order_notes ADD COLUMN IF NOT EXISTS linked_type VARCHAR(50)",
                       "ALTER TABLE order_notes ADD COLUMN IF NOT EXISTS author_name VARCHAR(255)",
                       "ALTER TABLE order_notes ADD COLUMN IF NOT EXISTS note_type VARCHAR(50) DEFAULT 'general'",
+                        // Shopify order financial fields
+                        "ALTER TABLE shopify_orders ADD COLUMN IF NOT EXISTS subtotal_price NUMERIC(10,2) DEFAULT 0",
+                        "ALTER TABLE shopify_orders ADD COLUMN IF NOT EXISTS total_shipping_price NUMERIC(10,2) DEFAULT 0",
+                        "ALTER TABLE shopify_orders ADD COLUMN IF NOT EXISTS total_tax NUMERIC(10,2) DEFAULT 0",
                     ];
                   for (const sql of alterations) {
                               try { await client.query(sql); } catch(e) { /* column already exists */ }
