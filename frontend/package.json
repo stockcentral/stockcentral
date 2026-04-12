@@ -21,4 +21,5 @@
     "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
   },
   "proxy": "http://localhost:3001"
+"proxy": "https://stockcentral-production.up.railway.app"
 }
