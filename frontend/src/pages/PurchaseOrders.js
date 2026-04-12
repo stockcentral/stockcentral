@@ -1,141 +1,155 @@
+// Purchase Orders Page
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
-import { Plus, Search, Eye, CheckCircle } from 'lucide-react';
+import { Plus, X, Search, Eye } from 'lucide-react';
+import { VendorSelect } from './Vendors';
 
-const statusColors = { pending: 'badge-warning', approved: 'badge-info', ordered: 'badge-info', received: 'badge-success', cancelled: 'badge-danger', partial: 'badge-warning' };
+const EMPTY = { vendor_id:'', expected_date:'', notes:'', status:'pending' };
 
 export default function PurchaseOrders() {
-  const [pos, setPOs] = useState([]);
-  const [search, setSearch] = useState('');
-  const [modal, setModal] = useState(false);
-  const [vendors, setVendors] = useState([]);
-  const [form, setForm] = useState({ vendor_id: '', notes: '', shipping_cost: 0, vendor_credit: 0, expected_date: '' });
-  const navigate = useNavigate();
+    const [pos, setPOs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [showModal, setShowModal] = useState(false);
+    const [form, setForm] = useState(EMPTY);
+    const [isDirty, setIsDirty] = useState(false);
+    const [inventory, setInventory] = useState([]);
+    const [items, setItems] = useState([]);
 
-  useEffect(() => {
-    api.get('/purchase-orders').then(r => setPOs(r.data));
-    api.get('/vendors').then(r => setVendors(r.data));
-  }, []);
+  useEffect(()=>{ fetchAll(); },[]);
 
-  const filtered = pos.filter(p => p.po_number?.toLowerCase().includes(search.toLowerCase()) || p.vendor_name?.toLowerCase().includes(search.toLowerCase()));
-
-  const create = async (e) => {
-    e.preventDefault();
-    try {
-      const r = await api.post('/purchase-orders', { ...form, items: [] });
-      toast.success('Purchase order created');
-      setModal(false);
-      navigate(`/purchase-orders/${r.data.id}`);
-    } catch (err) { toast.error(err.response?.data?.error || 'Error'); }
+  const fetchAll = async () => {
+        try {
+                setLoading(true);
+                const [pRes, iRes] = await Promise.all([api.get('/purchase-orders'), api.get('/inventory')]);
+                setPOs(pRes.data); setInventory(iRes.data);
+        } catch(e) { toast.error('Failed to load purchase orders'); }
+        finally { setLoading(false); }
   };
 
-  const markReceived = async (id, e) => {
-    e.stopPropagation();
-    if (!window.confirm('Mark this PO as received? This will update inventory quantities.')) return;
-    try {
-      await api.put(`/purchase-orders/${id}`, { status: 'received' });
-      api.get('/purchase-orders').then(r => setPOs(r.data));
-      toast.success('PO marked as received — inventory updated!');
-    } catch (err) { toast.error('Error'); }
+  const handleChange = (e) => { setForm(f=>({...f,[e.target.name]:e.target.value})); setIsDirty(true); };
+
+  const attemptClose = () => {
+        if (isDirty && !window.confirm('Discard changes?')) return;
+        setShowModal(false); setIsDirty(false);
   };
 
-  const totalPending = pos.filter(p => p.status === 'pending' || p.status === 'ordered').reduce((sum, p) => sum + parseFloat(p.total||0), 0);
+  const addItem = () => setItems(i=>[...i,{inventory_item_id:'',quantity:1,unit_cost:''}]);
+    const updateItem = (idx,field,val) => setItems(i=>i.map((x,j)=>j===idx?{...x,[field]:val}:x));
+    const removeItem = (idx) => setItems(i=>i.filter((_,j)=>j!==idx));
+
+  const handleSave = async () => {
+        if (!form.vendor_id) return toast.error('Please select a vendor');
+        try {
+                await api.post('/purchase-orders', { ...form, items });
+                toast.success('Purchase order created');
+                setShowModal(false); setIsDirty(false); fetchAll();
+        } catch(e) { toast.error(e.response?.data?.error || 'Failed to create PO'); }
+  };
+
+  const filtered = pos.filter(p => !search || p.po_number?.toLowerCase().includes(search.toLowerCase()) || p.vendor_name?.toLowerCase().includes(search.toLowerCase()));
+
+  const statusColor = (s) => ({pending:'#f59e0b',ordered:'#3b82f6',received:'#10b981',cancelled:'#ef4444'}[s]||'#6b7280');
 
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Purchase Orders</h1>
-          <p className="page-subtitle">Pending value: <span className="font-mono text-warning">${totalPending.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></p>
-        </div>
-        <button className="btn btn-primary btn-sm" onClick={() => setModal(true)}><Plus size={14} />New Purchase Order</button>
-      </div>
+        <div className="page-container">
+          <div className="page-header">
+            <div><h1 className="page-title">Purchase Orders</h1><p className="page-subtitle">{pos.length} orders</p></div>
+          <button className="btn btn-primary" onClick={()=>{setForm(EMPTY);setItems([]);setIsDirty(false);setShowModal(true);}}><Plus size={16}/> New PO</button>
+  </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <div className="search-bar" style={{ maxWidth: 320 }}>
-          <Search size={14} style={{ color: 'var(--text-muted)' }} />
-          <input placeholder="Search POs..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-      </div>
+      <div className="search-bar">
+          <Search size={16} className="search-icon"/>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search POs..." className="search-input"/>
+  </div>
 
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-container">
-          <table>
-            <thead><tr><th>PO #</th><th>Vendor</th><th>Subtotal</th><th>Shipping</th><th>Total</th><th>Invoices</th><th>Paid</th><th>Expected</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={10}><div className="empty-state" style={{ padding: 32 }}>No purchase orders found</div></td></tr>
-              ) : filtered.map(po => {
-                const balance = parseFloat(po.total||0) - parseFloat(po.amount_paid||0);
-                return (
-                  <tr key={po.id} onClick={() => navigate(`/purchase-orders/${po.id}`)} style={{ cursor: 'pointer' }}>
-                    <td className="font-mono" style={{ fontSize: 12, color: 'var(--accent-light)' }}>{po.po_number}</td>
-                    <td style={{ fontWeight: 500 }}>{po.vendor_name || '—'}</td>
-                    <td className="font-mono" style={{ fontSize: 12 }}>${parseFloat(po.subtotal||0).toFixed(2)}</td>
-                    <td className="font-mono" style={{ fontSize: 12 }}>${parseFloat(po.shipping_cost||0).toFixed(2)}</td>
-                    <td className="font-mono" style={{ fontSize: 12, fontWeight: 600 }}>${parseFloat(po.total||0).toFixed(2)}</td>
-                    <td>
-                      {parseInt(po.invoice_count||0) > 0 ? (
-                        <span className="badge badge-info">{po.invoice_count} invoice{po.invoice_count > 1 ? 's' : ''}</span>
-                      ) : <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>None</span>}
-                    </td>
-                    <td>
-                      <div className="font-mono" style={{ fontSize: 12, color: parseFloat(po.amount_paid||0) >= parseFloat(po.total||0) ? 'var(--success)' : 'var(--warning)' }}>
-                        ${parseFloat(po.amount_paid||0).toFixed(2)}
-                        {balance > 0.01 && <div style={{ fontSize: 10, color: 'var(--danger)' }}>-${balance.toFixed(2)}</div>}
-                      </div>
-                    </td>
-                    <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{po.expected_date ? new Date(po.expected_date).toLocaleDateString() : '—'}</td>
-                    <td><span className={`badge ${statusColors[po.status] || 'badge-neutral'}`}>{po.status}</span></td>
-                    <td onClick={e => e.stopPropagation()}>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-secondary btn-sm btn-icon" onClick={() => navigate(`/purchase-orders/${po.id}`)}><Eye size={13} /></button>
-                        {po.status !== 'received' && po.status !== 'cancelled' && (
-                          <button className="btn btn-sm" style={{ background: 'var(--success-dim)', color: 'var(--success)', border: '1px solid var(--success)', fontSize: 11, padding: '4px 8px' }} onClick={e => markReceived(po.id, e)}>
-                            <CheckCircle size={12} />Receive
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {modal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
-          <div className="modal">
-            <div className="modal-header">
-              <h3 className="modal-title">New Purchase Order</h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => setModal(false)}>✕</button>
-            </div>
-            <form onSubmit={create}>
-              <div className="form-group">
-                <label className="form-label">Vendor *</label>
-                <select className="form-select" value={form.vendor_id} onChange={e => setForm({...form, vendor_id: e.target.value})} required>
-                  <option value="">Select vendor...</option>
-                  {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
-              </div>
-              <div className="grid-2">
-                <div className="form-group"><label className="form-label">Shipping Cost ($)</label><input className="form-input" type="number" step="0.01" value={form.shipping_cost} onChange={e => setForm({...form, shipping_cost: e.target.value})} /></div>
-                <div className="form-group"><label className="form-label">Vendor Credit ($)</label><input className="form-input" type="number" step="0.01" value={form.vendor_credit} onChange={e => setForm({...form, vendor_credit: e.target.value})} /></div>
-                <div className="form-group" style={{ gridColumn: '1/-1' }}><label className="form-label">Expected Date</label><input className="form-input" type="date" value={form.expected_date} onChange={e => setForm({...form, expected_date: e.target.value})} /></div>
-              </div>
-              <div className="form-group"><label className="form-label">Notes</label><textarea className="form-textarea" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} /></div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create PO</button>
-              </div>
-            </form>
-          </div>
-        </div>
+{loading ? <div className="loading">Loading...</div> : (
+         <div className="table-container">
+            <table className="data-table">
+              <thead><tr><th>PO #</th><th>Vendor</th><th>Status</th><th>Expected</th><th>Total</th><th>Date</th><th>Actions</th></tr></thead>
+             <tbody>
+{filtered.map(po=>(
+                  <tr key={po.id}>
+                  <td><code style={{fontSize:12}}>{po.po_number}</code></td>
+                    <td>{po.vendor_name||'—'}</td>
+                  <td><span style={{color:statusColor(po.status),fontWeight:600,fontSize:12}}>{po.status}</span></td>
+                    <td style={{fontSize:12}}>{po.expected_date?new Date(po.expected_date).toLocaleDateString():'—'}</td>
+                  <td>${parseFloat(po.total_amount||0).toFixed(2)}</td>
+                  <td style={{fontSize:12}}>{new Date(po.created_at).toLocaleDateString()}</td>
+                  <td><a href={`/po/${po.id}`} className="btn btn-secondary" style={{fontSize:12,padding:'4px 10px',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><Eye size={12}/> View</a></td>
+  </tr>
+              ))}
+{filtered.length===0&&<tr><td colSpan={7} style={{textAlign:'center',padding:32,opacity:.5}}>No purchase orders found</td></tr>}
+  </tbody>
+  </table>
+  </div>
       )}
-    </div>
+
+{showModal&&(
+          <div className="modal-overlay" onClick={e=>{if(e.target.className==='modal-overlay')attemptClose();}}>
+          <div className="modal large-modal">
+              <div className="modal-header"><h2>New Purchase Order</h2><button className="modal-close" onClick={attemptClose}><X size={18}/></button></div>
+              <div className="modal-body">
+                <div className="form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Vendor <span style={{color:'#ef4444'}}>*</span></label>
+                    <VendorSelect name="vendor_id" value={form.vendor_id} onChange={handleChange} className="form-input"/>
+  </div>
+                <div className="form-group">
+                    <label className="form-label">Status</label>
+                  <select name="status" value={form.status} onChange={handleChange} className="form-input">
+                      <option value="pending">Pending</option>
+                    <option value="ordered">Ordered</option>
+                    <option value="received">Received</option>
+                    <option value="cancelled">Cancelled</option>
+  </select>
+  </div>
+                <div className="form-group">
+                    <label className="form-label">Expected Delivery Date</label>
+                  <input type="date" name="expected_date" value={form.expected_date||''} onChange={handleChange} className="form-input"/>
+  </div>
+  </div>
+              <div className="form-group">
+                  <label className="form-label">Notes</label>
+                <textarea name="notes" value={form.notes||''} onChange={handleChange} className="form-input" rows={2}/>
+  </div>
+
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',margin:'16px 0 8px'}}>
+                <div style={{fontSize:12,fontWeight:600,textTransform:'uppercase',opacity:.5}}>Line Items</div>
+                <button className="btn btn-secondary" style={{fontSize:12}} onClick={addItem}><Plus size={12}/> Add Item</button>
+  </div>
+{items.map((item,idx)=>(
+                  <div key={idx} style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr auto',gap:8,marginBottom:8,alignItems:'end'}}>
+                  <div className="form-group" style={{margin:0}}>
+{idx===0&&<label className="form-label">Product</label>}
+                     <select value={item.inventory_item_id} onChange={e=>updateItem(idx,'inventory_item_id',e.target.value)} className="form-input">
+                        <option value="">— Select —</option>
+ {inventory.map(i=><option key={i.id} value={i.id}>{i.sku} — {i.name}</option>)}
+  </select>
+  </div>
+                  <div className="form-group" style={{margin:0}}>
+{idx===0&&<label className="form-label">Qty</label>}
+                     <input type="number" min="1" value={item.quantity} onChange={e=>updateItem(idx,'quantity',e.target.value)} className="form-input"/>
+  </div>
+                   <div className="form-group" style={{margin:0}}>
+{idx===0&&<label className="form-label">Unit Cost</label>}
+                     <input type="number" step="0.01" value={item.unit_cost} onChange={e=>updateItem(idx,'unit_cost',e.target.value)} className="form-input" placeholder="0.00"/>
+  </div>
+                   <button onClick={()=>removeItem(idx)} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',marginBottom:2}}><X size={16}/></button>
+  </div>
+              ))}
+{items.length===0&&<p style={{opacity:.5,fontSize:13,textAlign:'center',padding:'12px 0'}}>No items added yet</p>}
+  </div>
+            <div className="modal-footer">
+                <button className="btn btn-ghost" onClick={attemptClose}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSave}>Create PO</button>
+  </div>
+  </div>
+  </div>
+      )}
+
+      <style>{`.large-modal{max-width:750px!important}.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:600px){.form-grid-2{grid-template-columns:1fr}}`}</style>
+        </div>
   );
 }
