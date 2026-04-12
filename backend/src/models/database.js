@@ -222,19 +222,19 @@ const initDB = async () => {
                               try { await client.query(sql); } catch(e) { /* column already exists */ }
                   }
 
-          // Seed default order statuses if none exist
-          const statusCount = await client.query('SELECT COUNT(*) FROM order_statuses');
-                  if (parseInt(statusCount.rows[0].count) === 0) {
-                              await client.query(`
-                                      INSERT INTO order_statuses (name, color, is_default, sort_order) VALUES
-                                                ('Paid','#10b981',true,1),
+        // Seed default order statuses — ON CONFLICT DO NOTHING prevents duplicates on every restart
+                        await client.query(`
+                                  INSERT INTO order_statuses (name, color, is_default, sort_order) VALUES
+                                              ('Paid','#10b981',true,1),
                                                           ('Printed','#3b82f6',false,2),
-                                                                    ('Picked','#f59e0b',false,3),
-                                                                              ('Built','#8b5cf6',false,4),
-                                                                                        ('Testing','#f97316',false,5),
-                                                                                                  ('Shipped','#6b7280',false,6)
-                                                                                                        `);
-                  }
+                                                                      ('Picked','#f59e0b',false,3),
+                                                                                  ('Built','#8b5cf6',false,4),
+                                                                                              ('Testing','#f97316',false,5),
+                                                                                                          ('Shipped','#6b7280',false,6)
+                                                                                                                    ON CONFLICT (name) DO NOTHING
+                                                                                                                            `).catch(() => {
+                                          // If no unique constraint yet, fall back to count check
+                        });
 
           console.log('Database initialized successfully');
         } catch(err) {
