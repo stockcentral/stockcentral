@@ -4,7 +4,7 @@ import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Layers } from 'lucide-react';
 
-export function BOM() {
+export default function BOM() {
   const [inventory, setInventory] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [bom, setBom] = useState([]);
