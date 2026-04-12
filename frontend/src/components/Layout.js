@@ -5,10 +5,9 @@ import { LayoutDashboard, Package, Users, FileText, ShoppingCart, RotateCcw, Lay
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
-  { label: 'Inventory', icon: Package, path: '/inventory' },
-  { label: 'Vendors', icon: Users, path: '/vendors' },
-  { divider: true, label: 'PURCHASING' },
   { label: 'Orders', icon: ShoppingBag, path: '/orders' },
+  { label: 'Inventory', icon: Package, path: '/inventory' },
+  { divider: true, label: 'PURCHASING' },
   { label: 'Quote Requests', icon: FileText, path: '/quotes' },
   { label: 'Purchase Orders', icon: ShoppingCart, path: '/purchase-orders' },
   { label: 'RMA', icon: RotateCcw, path: '/rma' },
@@ -16,6 +15,7 @@ const navItems = [
   { label: 'Bill of Materials', icon: Layers, path: '/bom' },
   { label: 'Manufacturing', icon: Factory, path: '/manufacturing' },
   { divider: true, label: 'DATA' },
+  { label: 'Vendors', icon: Users, path: '/vendors' },
   { label: 'Settings', icon: Settings, path: '/settings' },
   ];
 
@@ -59,9 +59,9 @@ export default function Layout() {
                                     display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:6,
                                     color: isActive ? 'var(--accent-light)' : 'var(--text-secondary)',
                                     background: isActive ? 'var(--accent-dim)' : 'transparent',
-                                    textDecoration:'none', fontSize:13, fontWeight:500, marginBottom:2,
+                    textDecoration:'none', fontSize:13, fontWeight:500, marginBottom:2,
                                     transition:'all 0.15s', whiteSpace:'nowrap', overflow:'hidden',
-                                    justifyContent: collapsed ? 'center' : 'flex-start'
+                  justifyContent: collapsed ? 'center' : 'flex-start'
                 })}>
                 <Icon size={16} style={{ flexShrink:0 }}/>
 {!collapsed && item.label}
