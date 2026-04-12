@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
-import { LayoutDashboard, Package, Users, FileText, ShoppingCart, RotateCcw, Layers, Factory, History, Settings, LogOut, ChevronRight, Menu, X, Boxes } from 'lucide-react';
+import { LayoutDashboard, Package, Users, FileText, ShoppingCart, RotateCcw, Layers, Factory, ShoppingBag, Settings, LogOut, ChevronRight, Menu, Boxes } from 'lucide-react';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
   { label: 'Inventory', icon: Package, path: '/inventory' },
   { label: 'Vendors', icon: Users, path: '/vendors' },
   { divider: true, label: 'PURCHASING' },
+  { label: 'Orders', icon: ShoppingBag, path: '/orders' },
   { label: 'Quote Requests', icon: FileText, path: '/quotes' },
   { label: 'Purchase Orders', icon: ShoppingCart, path: '/purchase-orders' },
   { label: 'RMA', icon: RotateCcw, path: '/rma' },
@@ -15,96 +16,82 @@ const navItems = [
   { label: 'Bill of Materials', icon: Layers, path: '/bom' },
   { label: 'Manufacturing', icon: Factory, path: '/manufacturing' },
   { divider: true, label: 'DATA' },
-  { label: 'Order History', icon: History, path: '/orders' },
   { label: 'Settings', icon: Settings, path: '/settings' },
-];
+  ];
 
 export default function Layout() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+    const [collapsed, setCollapsed] = useState(false);
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      {/* Sidebar */}
-      <aside style={{
-        width: collapsed ? 60 : 220, minWidth: collapsed ? 60 : 220, background: 'var(--bg-secondary)',
-        borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column',
-        transition: 'width 0.2s, min-width 0.2s', overflow: 'hidden'
-      }}>
-        {/* Logo */}
-        <div style={{ padding: '16px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {!collapsed && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 28, height: 28, background: 'var(--accent)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Boxes size={16} color="#fff" />
-              </div>
+        <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
+      <aside style={{ width:collapsed?60:220, minWidth:collapsed?60:220, background:'var(--bg-secondary)', borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column', transition:'width 0.2s, min-width 0.2s', overflow:'hidden' }}>
+        <div style={{ padding:'16px 12px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+{!collapsed && (
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:28, height:28, background:'var(--accent)', borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <Boxes size={16} color="#fff"/>
+  </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>StockCentral</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>ERP System</div>
-              </div>
-            </div>
+                  <div style={{ fontWeight:700, fontSize:15, color:'var(--text-primary)', letterSpacing:'-0.3px' }}>StockCentral</div>
+                <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'1px' }}>ERP System</div>
+  </div>
+  </div>
           )}
-          {collapsed && <div style={{ width: 28, height: 28, background: 'var(--accent)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}><Boxes size={16} color="#fff" /></div>}
-          <button onClick={() => setCollapsed(!collapsed)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, borderRadius: 4, display: 'flex', marginLeft: collapsed ? 'auto' : 0 }}>
-            {collapsed ? <ChevronRight size={14} /> : <Menu size={14} />}
-          </button>
-        </div>
+{collapsed && <div style={{ width:28, height:28, background:'var(--accent)', borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto' }}><Boxes size={16} color="#fff"/></div>}
+          <button onClick={()=>setCollapsed(!collapsed)} style={{ background:'none', border:'none', color:'var(--text-muted)', cursor:'pointer', padding:4, borderRadius:4, display:'flex', marginLeft:collapsed?'auto':0 }}>
+{collapsed ? <ChevronRight size={14}/> : <Menu size={14}/>}
+</button>
+  </div>
 
-        {/* Nav */}
-        <nav style={{ flex: 1, overflow: 'auto', padding: '8px 8px' }}>
-          {navItems.map((item, i) => {
-            if (item.divider) return (
-              !collapsed && <div key={i} style={{ padding: '12px 8px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>{item.label}</div>
-            );
-            const Icon = item.icon;
-            return (
-              <NavLink key={item.path} to={item.path} end={item.path === '/'}
+        <nav style={{ flex:1, overflow:'auto', padding:'8px 8px' }}>
+{navItems.map((item, i) => {
+              if (item.divider) return (
+                              !collapsed && <div key={i} style={{ padding:'12px 8px 4px', fontSize:10, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'1px' }}>{item.label}</div>
+                          );
+             const Icon = item.icon;
+             return (
+                             <NavLink key={item.path} to={item.path} end={item.path === '/'}
                 style={({ isActive }) => ({
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 6,
-                  color: isActive ? 'var(--accent-light)' : 'var(--text-secondary)',
-                  background: isActive ? 'var(--accent-dim)' : 'transparent',
-                  textDecoration: 'none', fontSize: 13, fontWeight: 500, marginBottom: 2,
-                  transition: 'all 0.15s', whiteSpace: 'nowrap', overflow: 'hidden',
-                  justifyContent: collapsed ? 'center' : 'flex-start'
+                                    display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:6,
+                                    color: isActive ? 'var(--accent-light)' : 'var(--text-secondary)',
+                                    background: isActive ? 'var(--accent-dim)' : 'transparent',
+                                    textDecoration:'none', fontSize:13, fontWeight:500, marginBottom:2,
+                                    transition:'all 0.15s', whiteSpace:'nowrap', overflow:'hidden',
+                                    justifyContent: collapsed ? 'center' : 'flex-start'
                 })}>
-                <Icon size={16} style={{ flexShrink: 0 }} />
-                {!collapsed && item.label}
-              </NavLink>
+                <Icon size={16} style={{ flexShrink:0 }}/>
+{!collapsed && item.label}
+</NavLink>
             );
-          })}
-        </nav>
+})}
+</nav>
 
-        {/* User */}
-        <div style={{ padding: '12px 8px', borderTop: '1px solid var(--border)' }}>
-          {!collapsed && (
-            <div style={{ padding: '8px 10px', marginBottom: 4 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
-            </div>
+        <div style={{ padding:'12px 8px', borderTop:'1px solid var(--border)' }}>
+{!collapsed && (
+              <div style={{ padding:'8px 10px', marginBottom:4 }}>
+              <div style={{ fontSize:13, fontWeight:500, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user?.name}</div>
+              <div style={{ fontSize:11, color:'var(--text-muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user?.email}</div>
+  </div>
           )}
-          <button onClick={handleLogout} style={{
-            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 6,
-            background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer',
-            fontSize: 13, width: '100%', justifyContent: collapsed ? 'center' : 'flex-start',
-            transition: 'all 0.15s'
-          }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--danger)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>
-            <LogOut size={16} />
+          <button onClick={handleLogout}
+            style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:6, background:'none', border:'none', color:'var(--text-muted)', cursor:'pointer', fontSize:13, width:'100%', justifyContent:collapsed?'center':'flex-start', transition:'all 0.15s' }}
+            onMouseEnter={e=>e.currentTarget.style.color='var(--danger)'}
+                          onMouseLeave={e=>e.currentTarget.style.color='var(--text-muted)'}>
+                          <LogOut size={16}/>
             {!collapsed && 'Sign Out'}
-          </button>
-        </div>
-      </aside>
+</button>
+  </div>
+  </aside>
 
-      {/* Main content */}
-      <main style={{ flex: 1, overflow: 'auto', background: 'var(--bg-primary)' }}>
-        <div style={{ padding: '24px 28px', maxWidth: 1400, margin: '0 auto' }}>
-          <Outlet />
-        </div>
-      </main>
-    </div>
+      <main style={{ flex:1, overflow:'auto', background:'var(--bg-primary)' }}>
+        <div style={{ padding:'24px 28px', maxWidth:1400, margin:'0 auto' }}>
+          <Outlet/>
+  </div>
+  </main>
+  </div>
   );
 }
