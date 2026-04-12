@@ -1,122 +1,173 @@
+// Quotes Page
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
-import { Plus, Search, Eye, ArrowRight } from 'lucide-react';
+import { Plus, X, Search, Edit, Trash2, FileText } from 'lucide-react';
+import { VendorSelect } from './Vendors';
 
-const statusColors = { draft: 'badge-neutral', sent: 'badge-info', received: 'badge-warning', converted: 'badge-success', cancelled: 'badge-danger' };
+const EMPTY = { vendor_id:'', notes:'', shopify_order_id:'', shopify_order_number:'', status:'draft' };
 
 export default function Quotes() {
-  const [quotes, setQuotes] = useState([]);
-  const [search, setSearch] = useState('');
-  const [modal, setModal] = useState(false);
-  const [vendors, setVendors] = useState([]);
-  const [form, setForm] = useState({ vendor_id: '', notes: '', shipping_cost: 0, vendor_credit: 0, requested_by: '' });
-  const navigate = useNavigate();
+    const [quotes, setQuotes] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [showModal, setShowModal] = useState(false);
+    const [editing, setEditing] = useState(null);
+    const [form, setForm] = useState(EMPTY);
+    const [isDirty, setIsDirty] = useState(false);
+    const [inventory, setInventory] = useState([]);
+    const [items, setItems] = useState([]);
 
-  useEffect(() => {
-    api.get('/quotes').then(r => setQuotes(r.data));
-    api.get('/vendors').then(r => setVendors(r.data));
-  }, []);
+  useEffect(()=>{ fetchAll(); },[]);
 
-  const filtered = quotes.filter(q => q.quote_number?.toLowerCase().includes(search.toLowerCase()) || q.vendor_name?.toLowerCase().includes(search.toLowerCase()));
-
-  const create = async (e) => {
-    e.preventDefault();
-    try {
-      const r = await api.post('/quotes', { ...form, items: [] });
-      toast.success('Quote request created');
-      setModal(false);
-      navigate(`/quotes/${r.data.id}`);
-    } catch (err) { toast.error(err.response?.data?.error || 'Error'); }
+  const fetchAll = async () => {
+        try {
+                setLoading(true);
+                const [qRes, iRes] = await Promise.all([api.get('/quotes'), api.get('/inventory')]);
+                setQuotes(qRes.data); setInventory(iRes.data);
+        } catch(e) { toast.error('Failed to load quotes'); }
+        finally { setLoading(false); }
   };
 
-  const convert = async (id, e) => {
-    e.stopPropagation();
-    if (!window.confirm('Convert this quote to a Purchase Order?')) return;
-    try {
-      const r = await api.post(`/quotes/${id}/convert`);
-      toast.success('Converted to Purchase Order!');
-      navigate(`/purchase-orders/${r.data.id}`);
-    } catch (err) { toast.error(err.response?.data?.error || 'Error'); }
+  const openAdd = () => { setForm(EMPTY); setEditing(null); setItems([]); setIsDirty(false); setShowModal(true); };
+    const openEdit = (q) => { setForm({...EMPTY,...q}); setEditing(q.id); setItems(q.items||[]); setIsDirty(false); setShowModal(true); };
+
+  const handleChange = (e) => { setForm(f=>({...f,[e.target.name]:e.target.value})); setIsDirty(true); };
+
+  const attemptClose = () => {
+        if (isDirty && !window.confirm('Discard changes?')) return;
+        setShowModal(false); setIsDirty(false);
   };
+
+  const addItem = () => setItems(i=>[...i,{inventory_item_id:'',quantity:1,unit_cost:''}]);
+    const updateItem = (idx,field,val) => setItems(i=>i.map((x,j)=>j===idx?{...x,[field]:val}:x));
+    const removeItem = (idx) => setItems(i=>i.filter((_,j)=>j!==idx));
+
+  const handleSave = async () => {
+        if (!form.vendor_id) return toast.error('Please select a vendor');
+        try {
+                const payload = { ...form, items };
+                if (editing) { await api.put(`/quotes/${editing}`, payload); toast.success('Quote updated'); }
+                else { await api.post('/quotes', payload); toast.success('Quote created'); }
+                setShowModal(false); setIsDirty(false); fetchAll();
+        } catch(e) { toast.error(e.response?.data?.error || 'Failed to save quote'); }
+  };
+
+  const handleDelete = async (id) => {
+        if (!window.confirm('Delete this quote?')) return;
+        try { await api.delete(`/quotes/${id}`); toast.success('Deleted'); fetchAll(); }
+        catch(e) { toast.error('Failed to delete'); }
+  };
+
+  const filtered = quotes.filter(q => !search || q.quote_number?.toLowerCase().includes(search.toLowerCase()) || q.vendor_name?.toLowerCase().includes(search.toLowerCase()));
+
+  const statusColor = (s) => ({draft:'#6b7280',sent:'#3b82f6',approved:'#10b981',rejected:'#ef4444'}[s]||'#6b7280');
 
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Quote Requests</h1>
-          <p className="page-subtitle">Create quote requests → convert to purchase orders</p>
-        </div>
-        <button className="btn btn-primary btn-sm" onClick={() => setModal(true)}><Plus size={14} />New Quote Request</button>
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <div className="search-bar" style={{ maxWidth: 320 }}>
-          <Search size={14} style={{ color: 'var(--text-muted)' }} />
-          <input placeholder="Search quotes..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-      </div>
-
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-container">
-          <table>
-            <thead><tr><th>Quote #</th><th>Vendor</th><th>Items</th><th>Total</th><th>Requested By</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={8}><div className="empty-state" style={{ padding: 32 }}>No quote requests found</div></td></tr>
-              ) : filtered.map(q => (
-                <tr key={q.id} onClick={() => navigate(`/quotes/${q.id}`)} style={{ cursor: 'pointer' }}>
-                  <td className="font-mono" style={{ fontSize: 12, color: 'var(--accent-light)' }}>{q.quote_number}</td>
-                  <td style={{ fontWeight: 500 }}>{q.vendor_name || '—'}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>—</td>
-                  <td className="font-mono" style={{ fontSize: 12 }}>${parseFloat(q.total||0).toFixed(2)}</td>
-                  <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{q.requested_by || '—'}</td>
-                  <td><span className={`badge ${statusColors[q.status] || 'badge-neutral'}`}>{q.status}</span></td>
-                  <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{new Date(q.created_at).toLocaleDateString()}</td>
-                  <td onClick={e => e.stopPropagation()}>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="btn btn-secondary btn-sm btn-icon" onClick={() => navigate(`/quotes/${q.id}`)}><Eye size={13} /></button>
-                      {q.status !== 'converted' && q.status !== 'cancelled' && (
-                        <button className="btn btn-sm" style={{ background: 'var(--success-dim)', color: 'var(--success)', border: '1px solid var(--success)', fontSize: 11 }} onClick={e => convert(q.id, e)}>
-                          <ArrowRight size={12} />Convert to PO
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {modal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
-          <div className="modal">
-            <div className="modal-header">
-              <h3 className="modal-title">New Quote Request</h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => setModal(false)}>✕</button>
-            </div>
-            <form onSubmit={create}>
-              <div className="form-group">
-                <label className="form-label">Vendor</label>
-                <select className="form-select" value={form.vendor_id} onChange={e => setForm({...form, vendor_id: e.target.value})}>
-                  <option value="">Select vendor...</option>
-                  {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
-              </div>
-              <div className="form-group"><label className="form-label">Requested By</label><input className="form-input" value={form.requested_by} onChange={e => setForm({...form, requested_by: e.target.value})} placeholder="Your name" /></div>
-              <div className="form-group"><label className="form-label">Notes</label><textarea className="form-textarea" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Special instructions, requirements..." /></div>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>You can add items after creating the quote request.</p>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create Quote Request</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+        <div className="page-container">
+          <div className="page-header">
+            <div><h1 className="page-title">Quote Requests</h1><p className="page-subtitle">{quotes.length} quotes</p></div>
+          <button className="btn btn-primary" onClick={openAdd}><Plus size={16}/> New Quote</button>
     </div>
+
+      <div className="search-bar">
+            <Search size={16} className="search-icon"/>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search quotes..." className="search-input"/>
+    </div>
+
+  {loading ? <div className="loading">Loading...</div> : (
+           <div className="table-container">
+              <table className="data-table">
+                <thead><tr><th>Quote #</th><th>Vendor</th><th>Status</th><th>Items</th><th>Total</th><th>Date</th><th>Actions</th></tr></thead>
+               <tbody>
+  {filtered.map(q=>(
+                    <tr key={q.id}>
+                      <td><code style={{fontSize:12}}>{q.quote_number}</code></td>
+                      <td>{q.vendor_name||'—'}</td>
+                  <td><span style={{color:statusColor(q.status),fontWeight:600,fontSize:12}}>{q.status}</span></td>
+                    <td>{q.item_count||0}</td>
+                  <td>${parseFloat(q.total_amount||0).toFixed(2)}</td>
+                  <td style={{fontSize:12}}>{new Date(q.created_at).toLocaleDateString()}</td>
+                  <td style={{display:'flex',gap:4}}>
+                    <button className="btn btn-secondary" style={{fontSize:12,padding:'4px 10px'}} onClick={()=>openEdit(q)}><Edit size={12}/></button>
+                    <button className="btn-icon danger" onClick={()=>handleDelete(q.id)}><Trash2 size={14}/></button>
+  </td>
+  </tr>
+              ))}
+{filtered.length===0&&<tr><td colSpan={7} style={{textAlign:'center',padding:32,opacity:.5}}>No quotes found</td></tr>}
+  </tbody>
+  </table>
+  </div>
+      )}
+
+{showModal&&(
+          <div className="modal-overlay" onClick={e=>{if(e.target.className==='modal-overlay')attemptClose();}}>
+          <div className="modal large-modal">
+              <div className="modal-header"><h2>{editing?'Edit Quote':'New Quote Request'}</h2><button className="modal-close" onClick={attemptClose}><X size={18}/></button></div>
+              <div className="modal-body">
+                <div className="form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Vendor <span style={{color:'#ef4444'}}>*</span></label>
+                    <VendorSelect name="vendor_id" value={form.vendor_id} onChange={handleChange} className="form-input"/>
+  </div>
+                <div className="form-group">
+                    <label className="form-label">Status</label>
+                  <select name="status" value={form.status} onChange={handleChange} className="form-input">
+                      <option value="draft">Draft</option>
+                    <option value="sent">Sent</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+  </select>
+  </div>
+                <div className="form-group">
+                    <label className="form-label">Linked Shopify Order ID</label>
+                  <input name="shopify_order_id" value={form.shopify_order_id||''} onChange={handleChange} className="form-input" placeholder="Optional"/>
+  </div>
+                <div className="form-group">
+                    <label className="form-label">Order Number</label>
+                  <input name="shopify_order_number" value={form.shopify_order_number||''} onChange={handleChange} className="form-input" placeholder="Optional"/>
+  </div>
+  </div>
+              <div className="form-group">
+                  <label className="form-label">Notes</label>
+                <textarea name="notes" value={form.notes||''} onChange={handleChange} className="form-input" rows={2}/>
+  </div>
+
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',margin:'16px 0 8px'}}>
+                <div style={{fontSize:12,fontWeight:600,textTransform:'uppercase',opacity:.5}}>Line Items</div>
+                <button className="btn btn-secondary" style={{fontSize:12}} onClick={addItem}><Plus size={12}/> Add Item</button>
+  </div>
+{items.map((item,idx)=>(
+                  <div key={idx} style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr auto',gap:8,marginBottom:8,alignItems:'end'}}>
+                  <div className="form-group" style={{margin:0}}>
+{idx===0&&<label className="form-label">Product</label>}
+                     <select value={item.inventory_item_id} onChange={e=>updateItem(idx,'inventory_item_id',e.target.value)} className="form-input">
+                        <option value="">— Select —</option>
+ {inventory.map(i=><option key={i.id} value={i.id}>{i.sku} — {i.name}</option>)}
+  </select>
+  </div>
+                  <div className="form-group" style={{margin:0}}>
+{idx===0&&<label className="form-label">Qty</label>}
+                     <input type="number" min="1" value={item.quantity} onChange={e=>updateItem(idx,'quantity',e.target.value)} className="form-input"/>
+  </div>
+                   <div className="form-group" style={{margin:0}}>
+{idx===0&&<label className="form-label">Unit Cost</label>}
+                     <input type="number" step="0.01" value={item.unit_cost} onChange={e=>updateItem(idx,'unit_cost',e.target.value)} className="form-input" placeholder="0.00"/>
+  </div>
+                   <button onClick={()=>removeItem(idx)} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',marginBottom:2}}><X size={16}/></button>
+  </div>
+              ))}
+{items.length===0&&<p style={{opacity:.5,fontSize:13,textAlign:'center',padding:'12px 0'}}>No items added yet</p>}
+  </div>
+            <div className="modal-footer">
+                <button className="btn btn-ghost" onClick={attemptClose}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSave}>{editing?'Save Changes':'Create Quote'}</button>
+  </div>
+  </div>
+  </div>
+      )}
+
+      <style>{`.large-modal{max-width:750px!important}.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.btn-icon{background:none;border:none;cursor:pointer;padding:4px;border-radius:4px;opacity:.6}.btn-icon:hover{opacity:1}.btn-icon.danger:hover{color:#ef4444}@media(max-width:600px){.form-grid-2{grid-template-columns:1fr}}`}</style>
+        </div>
   );
 }
