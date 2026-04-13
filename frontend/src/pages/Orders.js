@@ -238,7 +238,7 @@ export default function Orders() {
                 </div>
                 <div style={{fontSize:12,opacity:.4,marginTop:2}}>{fmtDate(sel.created_at)}</div>
               </div>
-              <button onClick={()=>markCancelled(sel.id)} style={{fontSize:12,padding:'5px 12px',borderRadius:6,border:'1px solid rgba(239,68,68,.4)',background:'none',cursor:'pointer',color:'#ef4444',whiteSpace:'nowrap'}}>Mark Cancelled</button>
+             
               <button onClick={closeOrder} style={{background:'none',border:'none',cursor:'pointer',color:'inherit',opacity:.5,padding:4}}><X size={18}/></button>
             </div>
 
