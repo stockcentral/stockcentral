@@ -209,7 +209,7 @@ export default function Orders() {
                     <td onClick={e=>e.stopPropagation()}>
                       <select value={order.custom_status_id||''} onChange={e=>{const s=statuses.find(x=>x.id===e.target.value);if(s)updateStatus(order.id,s.id,s.name);}}
                         style={{padding:'4px 8px',borderRadius:12,border:'none',cursor:'pointer',fontWeight:600,fontSize:12,background:`${sColor}22`,color:sColor,outline:'none'}}>
-                        <option value="" disabled>{sName}</option>
+                        
                         {statuses.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
                       </select>
                     </td>
@@ -232,7 +232,7 @@ export default function Orders() {
                   <span style={{fontSize:18,fontWeight:700}}>Order #{sel.order_number}</span>
                   <select value={sel.custom_status_id||''} onChange={e=>{const s=statuses.find(x=>x.id===e.target.value);if(s)updateStatus(sel.id,s.id,s.name);}}
                     style={{padding:'4px 12px',borderRadius:20,border:'none',cursor:'pointer',fontWeight:600,fontSize:12,background:`${getStatus(sel).color}22`,color:getStatus(sel).color,outline:'none'}}>
-                    <option value="" disabled>{getStatus(sel).name}</option>
+                    
                     {statuses.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
