@@ -51,7 +51,7 @@ export default function Orders() {
   const [onOrderModal, setOnOrderModal] = useState(null);
   const [selectedItems, setSelectedItems] = useState([]);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
-  const [quotes, setQuotes] = useState([]);
+ const [showNewOrder, setShowNewOrder] = useState(false);
   const [quoteMode, setQuoteMode] = useState('new');
   const [existingQuoteId, setExistingQuoteId] = useState('');
 
