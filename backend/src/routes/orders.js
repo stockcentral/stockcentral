@@ -38,7 +38,7 @@ router.get('/:id', async (req, res) => {
                           pool.query('SELECT * FROM inventory_items WHERE sku = ANY($1)', [skus]),
                           pool.query(`SELECT ii.sku, COALESCE(SUM(pi.quantity - pi.received_quantity),0) as on_order FROM po_items pi JOIN purchase_orders po ON pi.po_id=po.id JOIN inventory_items ii ON pi.inventory_item_id=ii.id WHERE ii.sku=ANY($1) AND po.status IN ('sent','partial','pending','ordered') AND pi.quantity > pi.received_quantity GROUP BY ii.sku`, [skus]),
                           pool.query(`SELECT ii.sku, po.id, po.po_number, po.status, po.expected_date, v.name as vendor_name, pi.quantity as ordered_qty, pi.received_quantity FROM po_items pi JOIN purchase_orders po ON pi.po_id=po.id LEFT JOIN vendors v ON po.vendor_id=v.id JOIN inventory_items ii ON pi.inventory_item_id=ii.id WHERE ii.sku=ANY($1) AND po.status IN ('sent','partial','pending','ordered') AND pi.quantity > pi.received_quantity ORDER BY po.expected_date ASC NULLS LAST`, [skus]),
-                          pool.query(`SELECT li_item->>'sku' as sku, COALESCE(SUM((li_item->>'quantity')::int),0) as total_demand FROM shopify_orders so, jsonb_array_elements(so.line_items) as li_item WHERE li_item->>'sku'=ANY($1) AND so.custom_status_id IN (SELECT id FROM order_statuses WHERE name NOT IN ('Shipped','Cancelled')) GROUP BY li_item->>'sku'`, [skus])
+AND (so.custom_status_id IS NULL OR so.custom_status_id NOT IN (SELECT id FROM order_statuses WHERE name IN ('Shipped','Cancelled'))) GROUP BY li_item->>'sku'
                         ]);
 
             const invMap = {};
