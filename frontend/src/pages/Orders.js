@@ -174,7 +174,7 @@ export default function Orders() {
   return (
             <div className="page-container">
               <div className="page-header">
-                <div><h1 className="page-title">Orders</h1><p className="page-subtitle">Paid &amp; unfulfilled — {orders.length} orders</p></div>
+                <div><h1 className="page-title">Orders</h1><p className="page-subtitle">Paid &; unfulfilled — {orders.length} orders</p></div>
         </div>
 
       <div className="search-bar">
