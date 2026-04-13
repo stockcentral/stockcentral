@@ -303,3 +303,13 @@ export default function Inventory() {
         .form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
         .form-grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
         .large-modal{max-width:800
+        .large-modal{max-width:800px!important}
+        .btn-icon{background:none;border:none;cursor:pointer;padding:4px;border-radius:4px;opacity:.6}
+        .btn-icon:hover{opacity:1;background:rgba(255,255,255,0.1)}
+        .btn-icon.danger:hover{color:#ef4444}
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+        @media(max-width:600px){.form-grid-2,.form-grid-4{grid-template-columns:1fr}}
+      `}</style>
+    </div>
+  );
+}
