@@ -64,6 +64,8 @@ export default function Inventory() {
             const [showBulkModal, setShowBulkModal] = useState(false);
             const [bulkForm, setBulkForm] = useState({ weight:'', length:'', width:'', height:'', harmonized_code:'', is_manufactured:'' });
             const [showImport, setShowImport] = useState(false);
+  const [stockSummary, setStockSummary] = useState({});
+  const [poModal, setPoModal] = useState(null);
             const fileRef = useRef();
             const photoRef = useRef();
 
