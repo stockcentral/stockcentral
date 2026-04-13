@@ -67,7 +67,7 @@ export default function Inventory() {
             const fileRef = useRef();
             const photoRef = useRef();
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => { fetchItems(); fetchStockSummary(); }, []);
 
   const fetchItems = async () => {
                 try { setLoading(true); const r = await api.get('/inventory'); setItems(r.data); }
@@ -258,7 +258,7 @@ const categories = [...new Set(items.map(i=>i.category).filter(Boolean))].sort()
           <table className="data-table">
             <thead><tr>
               <th><input type="checkbox" checked={selectedIds.length===filtered.length&&filtered.length>0} onChange={toggleSelectAll}/></th>
-              <th>Photo</th><th>SKU</th><th>Name</th><th>Category</th><th>Mfg?</th><th>Stock</th><th>Cost</th><th>Price</th><th>Actions</th>
+              <th>Photo</th><th>SKU</th><th>Name</th><th>Category</th><th>Mfg?</th><th>Stock</th><th>Available</th><th>On Order</th><th>Cost</th><th>Price</th><th>Actions</th>
             </tr></thead>
             <tbody>
               {filtered.map(item=>(
@@ -287,7 +287,9 @@ const categories = [...new Set(items.map(i=>i.category).filter(Boolean))].sort()
                   <td><span style={{color:item.quantity<=item.low_stock_threshold?'#ef4444':'inherit',fontWeight:item.quantity<=item.low_stock_threshold?600:400}}>
                     {item.quantity}{item.quantity<=item.low_stock_threshold&&<AlertTriangle size={12} style={{marginLeft:4,display:'inline'}}/>}
                   </span></td>
-                  <td>${parseFloat(item.cost||0).toFixed(2)}</td>
+                 <td>{(() => { const s=stockSummary[item.id]; const demand=0; return <span style={{color:item.quantity<=3?'#ef4444':item.quantity<=10?'#f59e0b':'inherit'}}>{item.quantity - demand}</span>; })()}</td>
+              <td>{(() => { const s=stockSummary[item.id]; const oo=s?.on_order||0; return oo>0 ? <button onClick={e=>{e.stopPropagation();setPoModal({item,pos:s.open_pos});}} style={{color:'#3b82f6',background:'none',border:'none',cursor:'pointer',fontWeight:700,textDecoration:'underline',fontSize:13}}>{oo}</button> : <span style={{opacity:.4}}>0</span>; })()}</td>
+              <td>${parseFloat(item.cost||0).toFixed(2)}</td>
                   <td>${parseFloat(item.price||0).toFixed(2)}</td>
                   <td onClick={e=>e.stopPropagation()}>
                     <button className="btn-icon" onClick={e=>openEdit(item,e)}><Edit size={14}/></button>
@@ -374,6 +376,33 @@ const categories = [...new Set(items.map(i=>i.category).filter(Boolean))].sort()
         </div>
       )}
 
+      {poModal&&(
+        <div className="modal-overlay" onClick={()=>setPoModal(null)}>
+          <div className="modal" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header"><h2>On Order — {poModal.item.name}</h2><button className="modal-close" onClick={()=>setPoModal(null)}><X size={18}/></button></div>
+            <div className="modal-body">
+              {(!poModal.pos||poModal.pos.length===0) ? <div style={{opacity:.5}}>No open purchase orders.</div> :
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                  <thead><tr style={{borderBottom:'1px solid rgba(255,255,255,.1)'}}>
+                    <th style={{textAlign:'left',padding:'6px 8px',opacity:.5,fontWeight:500}}>Vendor</th>
+                    <th style={{textAlign:'left',padding:'6px 8px',opacity:.5,fontWeight:500}}>PO #</th>
+                    <th style={{textAlign:'right',padding:'6px 8px',opacity:.5,fontWeight:500}}>Ordered</th>
+                    <th style={{textAlign:'right',padding:'6px 8px',opacity:.5,fontWeight:500}}>Received</th>
+                  </tr></thead>
+                  <tbody>{poModal.pos.map((po,i)=>(
+                    <tr key={i} style={{borderBottom:'1px solid rgba(255,255,255,.06)'}}>
+                      <td style={{padding:'8px'}}>{po.vendor_name||'—'}</td>
+                      <td style={{padding:'8px'}}><a href={`/purchase-orders?id=${po.po_id}`} onClick={()=>setPoModal(null)} style={{color:'#6366f1',fontWeight:600,textDecoration:'none'}}>{po.po_number}</a></td>
+                      <td style={{padding:'8px',textAlign:'right',fontWeight:600}}>{po.ordered_qty}</td>
+                      <td style={{padding:'8px',textAlign:'right',opacity:.6}}>{po.received_qty}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              }
+            </div>
+          </div>
+        </div>
+      )}
       {showBulkModal&&(
         <div className="modal-overlay" onClick={e=>{if(e.target.className==='modal-overlay')setShowBulkModal(false);}}>
           <div className="modal">
