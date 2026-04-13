@@ -175,6 +175,7 @@ export default function Orders() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Orders</h1><p className="page-subtitle">Paid &amp; unfulfilled &mdash; {orders.length} orders</p></div>
+        <button className="btn btn-primary" style={{display:'flex',alignItems:'center',gap:6}} onClick={()=>setShowNewOrder(true)}><Plus size={14}/>New Order</button>
       </div>
       <div className="search-bar">
         <Search size={16} className="search-icon"/>
