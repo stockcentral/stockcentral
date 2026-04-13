@@ -286,7 +286,7 @@ const categories = [...new Set(items.map(i=>i.category).filter(Boolean))].sort()
                     <input type="checkbox" checked={!!item.is_manufactured} onChange={e=>toggleManufactured(item,e)}
                       title="Toggle manufactured" style={{width:16,height:16,cursor:'pointer'}}/>
                   </td>
-                  <td><span style={{color:item.quantity<=item.low_stock_threshold?'#ef4444':'inherit'}}>{item.quantity}</span></td>                   <td>{stockSummary[item.id]?.on_order > 0 ? <button onClick={e=>{e.stopPropagation();setPoModal({item,pos:stockSummary[item.id].open_pos});}} style={{color:'#3b82f6',background:'none',border:'none',cursor:'pointer',fontWeight:700,fontSize:13,textDecoration:'underline'}}>{stockSummary[item.id].on_order}</button> : <span style={{opacity:.3}}>0</span>}</td>
+                  <td><span style={{color:item.quantity<=item.low_stock_threshold?'#ef4444':'inherit'}}>{item.quantity}</span></td>                   <td><span style={{color:item.quantity<=item.low_stock_threshold?'#ef4444':'inherit'}}>{item.quantity}</span></td>                   <td>{stockSummary[item.id]?.on_order > 0 ? <button onClick={e=>{e.stopPropagation();setPoModal({item,pos:stockSummary[item.id].open_pos});}} style={{color:'#3b82f6',background:'none',border:'none',cursor:'pointer',fontWeight:700,fontSize:13,textDecoration:'underline'}}>{stockSummary[item.id].on_order}</button> : <span style={{opacity:.3}}>0</span>}</td>
                   <td>${parseFloat(item.cost||0).toFixed(2)}</td>
                   <td>${parseFloat(item.price||0).toFixed(2)}</td>
                   <td onClick={e=>e.stopPropagation()}>
