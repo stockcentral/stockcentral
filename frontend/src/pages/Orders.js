@@ -206,7 +206,7 @@ export default function Orders() {
                     </td>
                     <td style={{fontWeight:600}}>{fmt(order.total_price)}</td>
                     <td style={{fontSize:12}}><span style={{fontWeight:600}}>{li.length}</span>{li.length>0&&<span style={{opacity:.5}}> &mdash; {li.slice(0,2).map(i=>i.name||'Item').join(', ')}{li.length>2?'...':''}</span>}</td>
-                    <td onClick={e=>e.stopPropagation()}>
+                    <td onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()}>
                       <select value={order.custom_status_id||''} onChange={e=>{const s=statuses.find(x=>x.id===e.target.value);if(s)updateStatus(order.id,s.id,s.name);}}
                         style={{padding:'4px 8px',borderRadius:12,border:'none',cursor:'pointer',fontWeight:600,fontSize:12,background:`${sColor}22`,color:sColor,outline:'none'}}>
                         
