@@ -162,6 +162,31 @@ router.put('/:id', async (req, res) => {
         } catch(err) { res.status(500).json({error:err.message}); }
 });
 
+router.get('/stock-summary', async (req, res) => {
+  try {
+    const onOrder = await pool.query(`
+      SELECT ii.id as inventory_item_id, ii.sku,
+        COALESCE(SUM(pi.quantity - pi.received_quantity), 0) as on_order,
+        json_agg(json_build_object(
+          'po_id', po.id, 'po_number', po.po_number, 'status', po.status,
+          'vendor_name', v.name, 'ordered_qty', pi.quantity,
+          'received_qty', pi.received_quantity
+        ) ORDER BY po.created_at DESC) FILTER (WHERE pi.quantity > pi.received_quantity) as open_pos
+      FROM inventory_items ii
+      LEFT JOIN po_items pi ON pi.inventory_item_id = ii.id
+      LEFT JOIN purchase_orders po ON pi.po_id = po.id AND po.status IN ('sent','partial','pending','ordered')
+      LEFT JOIN vendors v ON po.vendor_id = v.id
+      WHERE pi.quantity > pi.received_quantity OR pi.id IS NULL
+      GROUP BY ii.id, ii.sku
+    `);
+    const map = {};
+    onOrder.rows.forEach(r => {
+      map[r.inventory_item_id] = { on_order: parseInt(r.on_order)||0, open_pos: r.open_pos||[] };
+    });
+    res.json(map);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
 router.delete('/:id', async (req, res) => {
         try { await pool.query('DELETE FROM inventory_items WHERE id=$1',[req.params.id]); res.json({success:true}); }
         catch(err) { res.status(500).json({error:err.message}); }
