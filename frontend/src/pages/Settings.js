@@ -106,7 +106,7 @@ const GENERAL_DEFAULTS = { cost_update_mode:'auto', cost_calculation_method:'1',
     { id:'shopify', label:'Shopify', icon:Link },
     { id:'warranty', label:'Warranty', icon:Shield },
     { id:'tickets', label:'Ticket Types', icon:Tag },
-    { id:'general', label:'General', icon:ShoppingBag },       { id:'order-statuses', label:'Order Statuses', icon:ShoppingBag },
+    { id:'general', label:'General', icon:ShoppingBag },       { id:'general', label:'General', icon:ShoppingBag },     { id:'order-statuses', label:'Order Statuses', icon:ShoppingBag },
     { id:'status-log', label:'Status Log', icon:Activity },
     { id:'sync', label:'Sync', icon:RefreshCw },
       ];
