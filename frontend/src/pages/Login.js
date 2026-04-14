@@ -35,10 +35,10 @@ export default function Login() {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ width: 56, height: 56, background: 'var(--accent)', borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16, boxShadow: '0 8px 32px rgba(99,102,241,0.4)' }}>
-            <Boxes size={28} color="#fff" />
+            <svg width="28" height="28" viewBox="0 0 22 22" fill="none"><rect x="2" y="6" width="5" height="11" rx="1.5" fill="#818cf8"/><rect x="8.5" y="9" width="5" height="8" rx="1.5" fill="#a5b4fc"/><rect x="15" y="7" width="5" height="10" rx="1.5" fill="#10b981"/><polygon points="17.5,3 20.5,7 14.5,7" fill="#10b981"/></svg>
           </div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>StockCentral</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>ERP Management System</p>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', letterSpacing:'-0.5px' }}>Stock<span style={{color:'#818cf8'}}>Central</span></h1>
+          <p style={{ color: '#6366f1', fontSize: 11, marginTop: 4, letterSpacing:'2px', textTransform:'uppercase', fontWeight:500 }}>ERP Platform</p>
         </div>
 
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 28 }}>
