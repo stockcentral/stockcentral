@@ -162,8 +162,8 @@ export default function Inventory() {
               {filtered.map(item=>(
                 <tr key={item.id} className={`hover-row${item.quantity<=item.low_stock_threshold?' low-stock-row':''}`} onClick={()=>openEdit(item)} style={{cursor:'pointer'}}>
                   <td onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={e=>toggleSelect(item.id,e)}/></td>
-                  {visibleCols.photo&&<td>{item.photo_url ? <img src={item.photo_url} alt="" style={{width:36,height:36,borderRadius:6,objectFit:'cover'}}/> : <div style={{width:36,height:36,borderRadius:6,background:'rgba(255,255,255,.06)',display:'flex',alignItems:'center',justifyContent:'center'}}><Package size={18} style={{opacity:.3}}/></div>}</td>}
-                  {visibleCols.sku&&<td><code style={{fontSize:12}}>{item.sku}</code></td>}
+                  {visibleCols.photo&&{visibleCols.photo&&<td>{item.photo_url ? <img src={item.photo_url} alt="" style={{width:36,height:36,borderRadius:6,objectFit:'cover'}}/> : <div style={{width:36,height:36,borderRadius:6,background:'rgba(255,255,255,.06)',display:'flex',alignItems:'center',justifyContent:'center'}}><Package size={18} style={{opacity:.3}}/></div>}</td>}
+                  {visibleCols.sku&&<{visibleCols.sku&&<td><code style={{fontSize:12}}>{item.sku}</code></td>}
                   {visibleCols.name&&<td><div style={{display:'flex',alignItems:'center',gap:6}}>{item.name}{item.is_manufactured && <span title="Manufactured"><Factory size={13} style={{color:'#8b5cf6'}}/></span>}{item.shopify_product_id && <span title="Synced with Shopify" style={{fontSize:10,padding:'1px 5px',borderRadius:4,background:'rgba(16,185,129,.15)',color:'#10b981',fontWeight:600}}>SHF</span>}</div></td>
                   <td>{item.category||'—'}</td>
                   <td onClick={e=>e.stopPropagation()}><input type="checkbox" checked={!!item.is_manufactured} onChange={e=>toggleManufactured(item,e)} title="Toggle manufactured" style={{width:16,height:16,cursor:'pointer'}}/></td>
