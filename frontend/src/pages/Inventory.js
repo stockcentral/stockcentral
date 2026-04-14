@@ -38,7 +38,7 @@ export default function Inventory() {
               const [bulkForm, setBulkForm] = useState({ weight:'', length:'', width:'', height:'', harmonized_code:'', is_manufactured:'' });
               const [showImport, setShowImport] = useState(false);
               const [stockSummary, setStockSummary] = useState({});
-              const [poModal, setPoModal] = useState(null);
+              const [poModal, setPoModal] = useState(null);   const [showArchived, setShowArchived] = useState(false);
               const fileRef = useRef();
               const photoRef = useRef();
 
@@ -147,7 +147,7 @@ export default function Inventory() {
           <span style={{opacity:.4}}>-</span>
           <input value={filterPriceMax} onChange={e=>setFilterPriceMax(e.target.value)} placeholder="Max" type="number" style={{width:70,padding:'7px 10px',borderRadius:8,border:'1px solid rgba(255,255,255,.12)',background:'var(--bg-secondary,#1a1a2e)',color:'inherit',fontSize:13}}/>
         </div>
-        {hasFilters && <button onClick={()=>{setSearch('');setFilterCategory('');setFilterPriceMin('');setFilterPriceMax('');}} style={{padding:'7px 12px',borderRadius:8,border:'1px solid rgba(255,255,255,.15)',background:'none',cursor:'pointer',color:'inherit',fontSize:12,opacity:.7}}>Clear filters</button>}
+        <button onClick={()=>setShowArchived(s=>!s)} style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${showArchived?'#f59e0b':'rgba(255,255,255,.15)'}`,background:showArchived?'rgba(245,158,11,.15)':'none',cursor:'pointer',color:showArchived?'#f59e0b':'inherit',fontSize:12,whiteSpace:'nowrap'}}>📦 {showArchived?'Hide Archived':'Show Archived'}</button>       {hasFilters && <button onClick={()=>{setSearch('');setFilterCategory('');setFilterPriceMin('');setFilterPriceMax('');}} style={{padding:'7px 12px',borderRadius:8,border:'1px solid rgba(255,255,255,.15)',background:'none',cursor:'pointer',color:'inherit',fontSize:12,opacity:.7}}>Clear filters</button>}
         <span style={{fontSize:12,opacity:.45}}>{filtered.length} shown</span>
       </div>
 
