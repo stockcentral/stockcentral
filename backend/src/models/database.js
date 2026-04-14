@@ -220,7 +220,7 @@ const initDB = async () => {
                         // Shopify order financial fields
                         "ALTER TABLE shopify_orders ADD COLUMN IF NOT EXISTS subtotal_price NUMERIC(10,2) DEFAULT 0",
                         "ALTER TABLE shopify_orders ADD COLUMN IF NOT EXISTS total_shipping_price NUMERIC(10,2) DEFAULT 0",
-                        "ALTER TABLE shopify_orders ADD COLUMN IF NOT EXISTS total_tax NUMERIC(10,2) DEFAULT 0",
+                        "ALTER TABLE shopify_orders ADD COLUMN IF NOT EXISTS total_tax NUMERIC(10,2) DEFAULT 0",                       "ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false",                       "ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ",                       "INSERT INTO settings (key, value) VALUES ('cost_update_mode', 'auto') ON CONFLICT (key) DO NOTHING",                       "INSERT INTO settings (key, value) VALUES ('cost_calculation_method', '1') ON CONFLICT (key) DO NOTHING",                       "INSERT INTO settings (key, value) VALUES ('cost_avg_days', '30') ON CONFLICT (key) DO NOTHING",                       "INSERT INTO settings (key, value) VALUES ('cost_avg_type', 'cost') ON CONFLICT (key) DO NOTHING",                       "INSERT INTO settings (key, value) VALUES ('archive_sync', 'both') ON CONFLICT (key) DO NOTHING",
                     ];
                   for (const sql of alterations) {
                               try { await client.query(sql); } catch(e) { /* column already exists */ }
