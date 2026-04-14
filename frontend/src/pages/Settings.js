@@ -310,3 +310,4 @@ const GENERAL_DEFAULTS = { cost_update_mode:'auto', cost_calculation_method:'1',
         </div>
   );
 }
+ 
