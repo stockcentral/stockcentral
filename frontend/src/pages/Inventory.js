@@ -38,7 +38,7 @@ export default function Inventory() {
               const [bulkForm, setBulkForm] = useState({ weight:'', length:'', width:'', height:'', harmonized_code:'', is_manufactured:'' });
               const [showImport, setShowImport] = useState(false);
               const [stockSummary, setStockSummary] = useState({});
-              const [poModal, setPoModal] = useState(null);   const [showArchived, setShowArchived] = useState(false);
+              const [poModal, setPoModal] = useState(null);   const [showArchived, setShowArchived] = useState(false);   const [showColPicker, setShowColPicker] = useState(false);   const [visibleCols, setVisibleCols] = useState({photo:true,sku:true,name:true,category:true,mfg:true,stock:true,available:true,onOrder:true,cost:true,price:true,margin:true});   const toggleCol = col => setVisibleCols(v => ({...v,[col]:!v[col]}));
               const fileRef = useRef();
               const photoRef = useRef();
 
@@ -148,7 +148,7 @@ export default function Inventory() {
           <input value={filterPriceMax} onChange={e=>setFilterPriceMax(e.target.value)} placeholder="Max" type="number" style={{width:70,padding:'7px 10px',borderRadius:8,border:'1px solid rgba(255,255,255,.12)',background:'var(--bg-secondary,#1a1a2e)',color:'inherit',fontSize:13}}/>
         </div>
         <button onClick={()=>setShowArchived(s=>!s)} style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${showArchived?'#f59e0b':'rgba(255,255,255,.15)'}`,background:showArchived?'rgba(245,158,11,.15)':'none',cursor:'pointer',color:showArchived?'#f59e0b':'inherit',fontSize:12,whiteSpace:'nowrap'}}>📦 {showArchived?'Hide Archived':'Show Archived'}</button>       {hasFilters && <button onClick={()=>{setSearch('');setFilterCategory('');setFilterPriceMin('');setFilterPriceMax('');}} style={{padding:'7px 12px',borderRadius:8,border:'1px solid rgba(255,255,255,.15)',background:'none',cursor:'pointer',color:'inherit',fontSize:12,opacity:.7}}>Clear filters</button>}
-        <span style={{fontSize:12,opacity:.45}}>{filtered.length} shown</span>
+        <div style={{position:'relative'}}>           <button onClick={()=>setShowColPicker(s=>!s)} style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${showColPicker?'#6366f1':'rgba(255,255,255,.15)'}`,background:showColPicker?'rgba(99,102,241,.15)':'none',cursor:'pointer',color:showColPicker?'#6366f1':'inherit',fontSize:12}}>⚙ Columns</button>           {showColPicker&&<div style={{position:'absolute',right:0,top:'110%',background:'#1e1e2e',border:'1px solid rgba(255,255,255,.15)',borderRadius:10,padding:'12px',zIndex:100,minWidth:160,boxShadow:'0 8px 32px rgba(0,0,0,.4)'}}>             {[['photo','Photo'],['sku','SKU'],['name','Name'],['category','Category'],['mfg','Mfg?'],['stock','Stock'],['available','Available'],['onOrder','On Order'],['cost','Cost'],['price','Price'],['margin','Margin']].map(([key,label])=>(               <label key={key} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',cursor:'pointer',fontSize:13}}>                 <input type="checkbox" checked={!!visibleCols[key]} onChange={()=>toggleCol(key)} style={{width:14,height:14}}/>                 {label}               </label>             ))}           </div>}         </div>         <span style={{fontSize:12,opacity:.45}}>{filtered.length} shown</span>
       </div>
 
       {loading ? <div className="loading">Loading...</div> : (
@@ -156,7 +156,7 @@ export default function Inventory() {
           <table className="data-table">
             <thead><tr>
               <th><input type="checkbox" checked={selectedIds.length===filtered.length&&filtered.length>0} onChange={toggleSelectAll}/></th>
-              <th>Photo</th><th>SKU</th><th>Name</th><th>Category</th><th>Mfg?</th><th>Stock</th><th>Available</th><th>On Order</th><th>Cost</th><th>Price</th><th>Margin</th>
+              {visibleCols.photo&&<th>Photo</th>}{visibleCols.sku&&<th>SKU</th>}{visibleCols.name&&<th>Name</th>}{visibleCols.category&&<th>Category</th>}{visibleCols.mfg&&<th>Mfg?</th>}{visibleCols.stock&&<th>Stock</th>}{visibleCols.available&&<th>Available</th>}{visibleCols.onOrder&&<th>On Order</th>}{visibleCols.cost&&<th>Cost</th>}{visibleCols.price&&<th>Price</th>}{visibleCols.margin&&<th>Margin</th>}
             </tr></thead>
             <tbody>
               {filtered.map(item=>(
