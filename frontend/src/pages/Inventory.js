@@ -156,7 +156,7 @@ export default function Inventory() {
           <table className="data-table">
             <thead><tr>
               <th><input type="checkbox" checked={selectedIds.length===filtered.length&&filtered.length>0} onChange={toggleSelectAll}/></th>
-              <th>Photo</th><th>SKU</th><th>Name</th><th>Category</th><th>Mfg?</th><th>Stock</th><th>Available</th><th>On Order</th><th>Cost</th><th>Price</th><th>Actions</th>
+              <th>Photo</th><th>SKU</th><th>Name</th><th>Category</th><th>Mfg?</th><th>Stock</th><th>Available</th><th>On Order</th><th>Cost</th><th>Price</th><th>Margin</th>
             </tr></thead>
             <tbody>
               {filtered.map(item=>(
@@ -171,11 +171,8 @@ export default function Inventory() {
                   <td><span style={{color:item.quantity<=item.low_stock_threshold?'#ef4444':'inherit'}}>{item.quantity}</span></td>
                   <td>{stockSummary[item.id]?.on_order > 0 ? <button onClick={e=>{e.stopPropagation();setPoModal({item,pos:stockSummary[item.id].open_pos});}} style={{color:'#3b82f6',background:'none',border:'none',cursor:'pointer',fontWeight:700,fontSize:13,textDecoration:'underline'}}>{stockSummary[item.id].on_order}</button> : <span style={{opacity:.3}}>0</span>}</td>
                   <td>${parseFloat(item.cost||0).toFixed(2)}</td>
-                  <td>${parseFloat(item.price||0).toFixed(2)}</td>
-                  <td onClick={e=>e.stopPropagation()}>
-                    <button className="btn-icon" onClick={e=>openEdit(item,e)}><Edit size={14}/></button>
-                    <button className="btn-icon danger" onClick={e=>handleDelete(item.id,e)}><Trash2 size={14}/></button>
-                  </td>
+                <td>${parseFloat(item.price||0).toFixed(2)}</td>
+                  <td><span style={{color:parseFloat(item.price)>parseFloat(item.cost)?'#10b981':'#ef4444',fontWeight:600}}>{item.price&&item.cost&&parseFloat(item.price)>0?((parseFloat(item.price)-parseFloat(item.cost))/parseFloat(item.price)*100).toFixed(1)+'%':'—'}</span></td>
                 </tr>
               ))}
               {filtered.length===0&&<tr><td colSpan={12} style={{textAlign:'center',padding:32,opacity:.5}}>No items found</td></tr>}
@@ -257,6 +254,8 @@ export default function Inventory() {
               {editing && form.shopify_product_id && <div style={{marginTop:16,padding:'10px 12px',background:'rgba(16,185,129,.08)',borderRadius:8,border:'1px solid rgba(16,185,129,.2)',fontSize:12}}><span style={{color:'#10b981',fontWeight:600}}>Shopify linked</span><span style={{opacity:.5,marginLeft:8}}>Product ID: {form.shopify_product_id}</span></div>}
             </div>
             <div className="modal-footer">
+              {editing && <button className="btn btn-ghost" style={{color:'#f59e0b',marginRight:'auto'}} onClick={async()=>{if(!window.confirm('Archive this item? It will be hidden and archived in Shopify.'))return;try{await api.put(`/inventory/${editing}/archive`);toast.success('Item archived');closeModal();fetchItems();fetchStockSummary();}catch(e){toast.error(e.response?.data?.error||'Failed to archive');}}}>Archive</button>}
+              {editing && <button className="btn btn-ghost" style={{color:'#ef4444'}} onClick={async()=>{if(!window.confirm('Delete permanently? This cannot be undone and will also delete from Shopify.'))return;try{await api.delete(`/inventory/${editing}`);toast.success('Item deleted');closeModal();fetchItems();fetchStockSummary();}catch(e){toast.error(e.response?.data?.error||'Failed to delete');}}}>Delete</button>}
               <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
               <button className="btn btn-primary" onClick={handleSave}>{editing?'Save Changes':'Add Item'}</button>
             </div>
