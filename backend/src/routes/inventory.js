@@ -187,9 +187,45 @@ router.get('/stock-summary', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+router.put('/:id/archive', async (req, res) => {
+  try {
+    const item = await pool.query('SELECT * FROM inventory_items WHERE id=$1', [req.params.id]);
+    if (!item.rows.length) return res.status(404).json({error:'Not found'});
+    const inv = item.rows[0];
+    await pool.query('UPDATE inventory_items SET is_archived=true, archived_at=NOW() WHERE id=$1', [req.params.id]);
+    const archiveSync = await pool.query("SELECT value FROM settings WHERE key='archive_sync'");
+    const syncMode = archiveSync.rows[0]?.value || 'both';
+    if (syncMode !== 'none' && inv.shopify_product_id) {
+      const settings = await pool.query("SELECT key, value FROM settings WHERE key IN ('shopify_store_url','shopify_access_token')");
+      const sm = {}; settings.rows.forEach(r => { sm[r.key] = r.value; });
+      if (sm.shopify_store_url && sm.shopify_access_token) {
+        await fetch(`https://${sm.shopify_store_url}/admin/api/2024-01/products/${inv.shopify_product_id}.json`, {
+          method: 'PUT', headers: {'X-Shopify-Access-Token': sm.shopify_access_token, 'Content-Type': 'application/json'},
+          body: JSON.stringify({product: {id: inv.shopify_product_id, status: 'archived'}})
+        });
+      }
+    }
+    res.json({success: true});
+  } catch(err) { res.status(500).json({error: err.message}); }
+});
+
 router.delete('/:id', async (req, res) => {
-        try { await pool.query('DELETE FROM inventory_items WHERE id=$1',[req.params.id]); res.json({success:true}); }
-        catch(err) { res.status(500).json({error:err.message}); }
+  try {
+    const item = await pool.query('SELECT * FROM inventory_items WHERE id=$1', [req.params.id]);
+    if (!item.rows.length) return res.status(404).json({error:'Not found'});
+    const inv = item.rows[0];
+    if (inv.shopify_product_id) {
+      const settings = await pool.query("SELECT key, value FROM settings WHERE key IN ('shopify_store_url','shopify_access_token')");
+      const sm = {}; settings.rows.forEach(r => { sm[r.key] = r.value; });
+      if (sm.shopify_store_url && sm.shopify_access_token) {
+        await fetch(`https://${sm.shopify_store_url}/admin/api/2024-01/products/${inv.shopify_product_id}.json`, {
+          method: 'DELETE', headers: {'X-Shopify-Access-Token': sm.shopify_access_token}
+        });
+      }
+    }
+    await pool.query('DELETE FROM inventory_items WHERE id=$1', [req.params.id]);
+    res.json({success: true});
+  } catch(err) { res.status(500).json({error: err.message}); }
 });
 
 module.exports = router;
