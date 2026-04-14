@@ -28,7 +28,7 @@ const DIR_LABELS = {
 
 const PRESET_COLORS = ['#6366f1','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#f97316','#06b6d4','#84cc16','#ec4899'];
 
-export default function Settings() {
+const GENERAL_DEFAULTS = { cost_update_mode:'auto', cost_calculation_method:'1', cost_avg_days:'30', cost_avg_type:'cost', archive_sync:'both' };  export default function Settings() {
     const [tab, setTab] = useState('shopify');
     const [shopify, setShopify] = useState({ shopify_shop:'', shopify_access_token:'', shopify_client_id:'', shopify_client_secret:'' });
     const [warranty, setWarranty] = useState({ period_days:365, period_label:'1 Year' });
@@ -40,7 +40,7 @@ export default function Settings() {
     const [logLoading, setLogLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {     api.get('/settings/general').then(r => setGeneral(r.data)).catch(()=>{}); fetchAll(); }, []);
 
   const fetchAll = async () => {
         try {
