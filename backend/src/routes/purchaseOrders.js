@@ -117,7 +117,7 @@ router.put('/:id/receive-item', async (req, res) => {
                   await pool.query(`UPDATE purchase_orders SET status='partial', updated_at=NOW() WHERE id=$1`, [req.params.id]);
           }
 
-      res.json({ success: true, item: item.rows[0] });
+      await updateInventoryCostFromPO(item.rows[0].inventory_item_id, item.rows[0].unit_cost, po.rows[0]?.shipping_cost);       res.json({ success: true, item: item.rows[0] });
     } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
