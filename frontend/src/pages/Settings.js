@@ -106,7 +106,7 @@ const GENERAL_DEFAULTS = { cost_update_mode:'auto', cost_calculation_method:'1',
     { id:'shopify', label:'Shopify', icon:Link },
     { id:'warranty', label:'Warranty', icon:Shield },
     { id:'tickets', label:'Ticket Types', icon:Tag },
-    { id:'general', label:'General', icon:ShoppingBag },       { id:'general', label:'General', icon:ShoppingBag },     { id:'general', label:'General', icon:ShoppingBag },     { id:'order-statuses', label:'Order Statuses', icon:ShoppingBag },
+    { id:'general', label:'General', icon:Tag },       { id:'general', label:'General', icon:ShoppingBag },     { id:'general', label:'General', icon:ShoppingBag },     { id:'order-statuses', label:'Order Statuses', icon:ShoppingBag },
     { id:'status-log', label:'Status Log', icon:Activity },
     { id:'sync', label:'Sync', icon:RefreshCw },
       ];
@@ -200,7 +200,7 @@ const GENERAL_DEFAULTS = { cost_update_mode:'auto', cost_calculation_method:'1',
 
 {tab==='order-statuses'&&(
           <div style={{maxWidth:640}}>
-          <h2 style={{fontSize:16,marginBottom:4}}>General</button><button onClick={()=>setTab('order-statuses')} className={`settings-tab${tab==='order-statuses'?' active':''}`}>General</button><button onClick={()=>setTab('order-statuses')} className={`settings-tab${tab==='order-statuses'?' active':''}`}>Order Statuses</h2>
+          <h2 style={{fontSize:16,marginBottom:4}}>General</button>           <button onClick={()=>setTab('order-statuses')} className={`settings-tab${tab==='order-statuses'?' active':''}`}>General</button><button onClick={()=>setTab('order-statuses')} className={`settings-tab${tab==='order-statuses'?' active':''}`}>Order Statuses</h2>
           <p style={{opacity:.6,fontSize:13,marginBottom:20}}>Customize order workflow statuses. These appear as the clickable status button on each order. The <strong>Paid</strong> status is the default when orders arrive from Shopify.</p>
             <div style={{marginBottom:24}}>
 {orderStatuses.map((s,idx)=>(
