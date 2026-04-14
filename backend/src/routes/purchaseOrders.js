@@ -160,4 +160,34 @@ router.delete('/:id', async (req, res) => {
     } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
-module.exports = router;
+
+// Cost auto-update helper - called after receiving PO items
+async function updateInventoryCostFromPO(inventoryItemId, unitCost, shippingPerUnit) {
+  try {
+    const modeRow = await pool.query("SELECT value FROM settings WHERE key='cost_update_mode'");
+    if (modeRow.rows[0]?.value !== 'auto') return;
+    const methodRow = await pool.query("SELECT value FROM settings WHERE key='cost_calculation_method'");
+    const method = methodRow.rows[0]?.value || '1';
+    let newCost = parseFloat(unitCost) || 0;
+    if (method === '2') newCost = newCost + (parseFloat(shippingPerUnit) || 0);
+    if (method === '3') {
+      const daysRow = await pool.query("SELECT value FROM settings WHERE key='cost_avg_days'");
+      const typeRow = await pool.query("SELECT value FROM settings WHERE key='cost_avg_type'");
+      const days = parseInt(daysRow.rows[0]?.value) || 30;
+      const avgType = typeRow.rows[0]?.value || 'cost';
+      const avgResult = await pool.query(`
+        SELECT AVG(pi.unit_cost + CASE WHEN $2='landed' THEN COALESCE(po.shipping_cost,0)/NULLIF(po.total_items,0) ELSE 0 END) as avg_cost
+        FROM po_items pi
+        JOIN purchase_orders po ON pi.po_id = po.id
+        WHERE pi.inventory_item_id = $1
+        AND po.status IN ('received','partial')
+        AND po.updated_at >= NOW() - INTERVAL '1 day' * $3
+        AND pi.received_quantity > 0
+      `, [inventoryItemId, avgType, days]);
+      if (avgResult.rows[0]?.avg_cost) newCost = parseFloat(avgResult.rows[0].avg_cost);
+    }
+    if (newCost > 0) {
+      await pool.query('UPDATE inventory_items SET cost=$1, updated_at=NOW() WHERE id=$2', [newCost, inventoryItemId]);
+    }
+  } catch(e) { console.error('Cost update error:', e.message); }
+}module.exports = router;
