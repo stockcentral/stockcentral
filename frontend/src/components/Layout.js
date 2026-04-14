@@ -32,11 +32,11 @@ export default function Layout() {
         <div style={{ padding:'16px 12px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
 {!collapsed && (
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-              <div style={{ width:28, height:28, background:'var(--accent)', borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <div style={{ width:36, height:36, background:'#4f46e5', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <Boxes size={16} color="#fff"/>
   </div>
               <div>
-                  <div style={{ fontWeight:700, fontSize:15, color:'var(--text-primary)', letterSpacing:'-0.3px' }}>StockCentral</div>
+                  <div style={{fontWeight:700,fontSize:15,letterSpacing:'-0.3px',color:'var(--text-primary)'}}>Stock<span style={{color:'#818cf8'}}>Central</span></div>
                 <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'1px' }}>ERP System</div>
   </div>
   </div>
