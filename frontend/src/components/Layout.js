@@ -33,7 +33,7 @@ export default function Layout() {
 {!collapsed && (
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
               <div style={{ width:36, height:36, background:'#4f46e5', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <svg width="18" height="18" viewBox="0 0 22 22" fill="none"><rect x="2" y="6" width="5" height="11" rx="1.5" fill="#818cf8"/><rect x="8.5" y="9" width="5" height="8" rx="1.5" fill="#a5b4fc"/><rect x="15" y="7" width="5" height="10" rx="1.5" fill="#10b981"/><polygon points="17.5,3 20.5,7 14.5,7" fill="#10b981"/></svg> color="#fff"/>
+              <svg width="18" height="18" viewBox="0 0 22 22" fill="none"><rect x="2" y="6" width="5" height="11" rx="1.5" fill="#818cf8"/><rect x="8.5" y="9" width="5" height="8" rx="1.5" fill="#a5b4fc"/><rect x="15" y="7" width="5" height="10" rx="1.5" fill="#10b981"/><polygon points="17.5,3 20.5,7 14.5,7" fill="#10b981"/></svg>
   </div>
               <div>
                   <div style={{fontWeight:700,fontSize:15,letterSpacing:'-0.3px',color:'var(--text-primary)'}}>Stock<span style={{color:'#818cf8'}}>Central</span></div>
