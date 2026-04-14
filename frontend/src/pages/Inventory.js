@@ -115,7 +115,7 @@ export default function Inventory() {
     const matchCat = !filterCategory || i.category === filterCategory;
     const matchPriceMin = !filterPriceMin || parseFloat(i.price||0) >= parseFloat(filterPriceMin);
     const matchPriceMax = !filterPriceMax || parseFloat(i.price||0) <= parseFloat(filterPriceMax);
-    return matchSearch && matchCat && matchPriceMin && matchPriceMax;
+    const matchArchived = showArchived ? i.is_archived : !i.is_archived;     return matchSearch && matchCat && matchPriceMin && matchPriceMax && matchArchived;
   });
 
   const iProps = { form, errors, onChange: handleChange };
