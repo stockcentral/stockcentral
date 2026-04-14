@@ -40,7 +40,7 @@ const GENERAL_DEFAULTS = { cost_update_mode:'auto', cost_calculation_method:'1',
     const [logLoading, setLogLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
-  useEffect(() => {     api.get('/settings/general').then(r => setGeneral(r.data)).catch(()=>{}); fetchAll(); }, []);
+  useEffect(() => {     api.get('/settings/general').then(r => setGeneral(r.data)).catch(() => {});     api.get('/settings/general').then(r => setGeneral(r.data)).catch(()=>{}); fetchAll(); }, []);
 
   const fetchAll = async () => {
         try {
