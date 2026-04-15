@@ -8,7 +8,7 @@ const vendorsRouter = require('./routes/vendors');
 const purchaseOrdersRouter = require('./routes/purchaseOrders');
 const quotesRouter = require('./routes/quotes');
 const shopifyRouter = require('./routes/shopify');
-const emailRouter = require('./routes/email.js');
+
 const settingsRouter = require('./routes/settings');
 const ordersRouter = require('./routes/orders');
 const { rmaRouter, bomRouter, mfgRouter, invoiceRouter, paymentRouter } = require('./routes/operations');
@@ -120,7 +120,7 @@ app.use('/api/bom', bomRouter);
 app.use('/api/manufacturing', mfgRouter);
 app.use('/api/invoices', invoiceRouter);
 app.use('/api/payments', paymentRouter);
-app.use('/api/email', emailRouter);
+
 
 app.use((err, req, res, next) => {
       console.error(err.stack);
