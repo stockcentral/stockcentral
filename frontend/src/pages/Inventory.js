@@ -1,55 +1,59 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
-import { Plus, Search, Edit, Trash2, Upload, Download, Package, AlertTriangle, X, Factory, Image, RefreshCw, ArrowUpRight } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Upload, Download, Package, AlertTriangle, X, Factory, Image, RefreshCw, ArrowUpRight, Barcode } from 'lucide-react';
 
-const EMPTY_ITEM = { sku:'', name:'', description:'', cost:'', price:'', quantity:'', low_stock_threshold:'5', category:'', brand:'', weight:'', length:'', width:'', height:'', harmonized_code:'', photo_url:'', country_of_origin:'', product_type:'', tags:'', collection:'', is_manufactured:false };
+const EMPTY_ITEM = { sku:'', name:'', barcode:'', description:'', cost:'', price:'', quantity:'', low_stock_threshold:'5', category:'', brand:'', weight:'', length:'', width:'', height:'', harmonized_code:'', photo_url:'', country_of_origin:'', product_type:'', tags:'', collection:'', is_manufactured:false };
 
-const FIELD_RULES = { sku:{ label:'SKU', required:true }, name:{ label:'Item Name', required:true }, cost:{ label:'Cost', hint:'e.g. 9.99' }, price:{ label:'Price', hint:'e.g. 19.99' }, quantity:{ label:'Quantity' }, low_stock_threshold:{ label:'Low Stock Alert' }, category:{ label:'Category' }, brand:{ label:'Brand' }, weight:{ label:'Weight (lbs)' }, length:{ label:'Length (in)' }, width:{ label:'Width (in)' }, height:{ label:'Height (in)' }, harmonized_code:{ label:'Harmonized Code' }, country_of_origin:{ label:'Country of Origin' }, product_type:{ label:'Product Type' }, tags:{ label:'Tags' }, collection:{ label:'Collection' }, description:{ label:'Description' } };
+const FIELD_RULES = { sku:{ label:'SKU', required:true }, name:{ label:'Item Name', required:true }, barcode:{ label:'Barcode / UPC' }, cost:{ label:'Cost', hint:'e.g. 9.99' }, price:{ label:'Price', hint:'e.g. 19.99' }, quantity:{ label:'Quantity' }, low_stock_threshold:{ label:'Low Stock Alert' }, category:{ label:'Category' }, brand:{ label:'Brand' }, weight:{ label:'Weight (lbs)' }, length:{ label:'Length (in)' }, width:{ label:'Width (in)' }, height:{ label:'Height (in)' }, harmonized_code:{ label:'Harmonized Code' }, country_of_origin:{ label:'Country of Origin' }, product_type:{ label:'Product Type' }, tags:{ label:'Tags' }, collection:{ label:'Collection' }, description:{ label:'Description' } };
 
 function InputField({ field, form, errors, onChange }) {
-              const rule = FIELD_RULES[field] || { label: field };
-              const hasError = errors[field];
-              return (
-                              <div className="form-group">
-                                <label className="form-label">{rule.label}{rule.required && <span style={{color:'#ef4444'}}> *</span>}</label>
-{field === 'description' ? <textarea name={field} value={form[field]||''} onChange={onChange} className={`form-input${hasError?' error-field':''}`} rows={3}/> : <input name={field} value={form[field]||''} onChange={onChange} className={`form-input${hasError?' error-field':''}`} placeholder={rule.hint||''}/>}
-{hasError && <div className="field-error">{hasError}</div>}
-            </div>
-   );
+  const rule = FIELD_RULES[field] || { label: field };
+  const hasError = errors[field];
+  return (
+    <div className="form-group">
+      <label className="form-label">{rule.label}{rule.required && <span style={{color:'#ef4444'}}> *</span>}</label>
+      {field === 'description' ? <textarea name={field} value={form[field]||''} onChange={onChange} className={`form-input${hasError?' error-field':''}`} rows={3}/> : <input name={field} value={form[field]||''} onChange={onChange} className={`form-input${hasError?' error-field':''}`} placeholder={rule.hint||''}/>}
+      {hasError && <div className="field-error">{hasError}</div>}
+    </div>
+  );
 }
 
 export default function Inventory() {
-              const [items, setItems] = useState([]);
-              const [loading, setLoading] = useState(true);
-              const [search, setSearch] = useState('');
-              const [filterCategory, setFilterCategory] = useState('');
-              const [filterPriceMin, setFilterPriceMin] = useState('');
-              const [filterPriceMax, setFilterPriceMax] = useState('');
-              const [showModal, setShowModal] = useState(false);
-              const [editing, setEditing] = useState(null);
-              const [form, setForm] = useState(EMPTY_ITEM);
-              const [errors, setErrors] = useState({});
-              const [photoFile, setPhotoFile] = useState(null);
-              const [photoPreview, setPhotoPreview] = useState(null);
-              const [pushingShopify, setPushingShopify] = useState(false);
-              const [selectedIds, setSelectedIds] = useState([]);
-              const [showBulkModal, setShowBulkModal] = useState(false);
-              const [bulkForm, setBulkForm] = useState({ weight:'', length:'', width:'', height:'', harmonized_code:'', is_manufactured:'' });
-              const [showImport, setShowImport] = useState(false);
-              const [stockSummary, setStockSummary] = useState({});
-              const [poModal, setPoModal] = useState(null);   const [showArchived, setShowArchived] = useState(false);   const [showColPicker, setShowColPicker] = useState(false);   const [visibleCols, setVisibleCols] = useState({photo:true,sku:true,name:true,category:true,mfg:true,stock:true,available:true,onOrder:true,cost:true,price:true,margin:true});   const toggleCol = col => setVisibleCols(v => ({...v,[col]:!v[col]}));
-              const fileRef = useRef();
-              const photoRef = useRef();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterPriceMin, setFilterPriceMin] = useState('');
+  const [filterPriceMax, setFilterPriceMax] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(EMPTY_ITEM);
+  const [errors, setErrors] = useState({});
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [pushingShopify, setPushingShopify] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkForm, setBulkForm] = useState({ weight:'', length:'', width:'', height:'', harmonized_code:'', is_manufactured:'' });
+  const [showImport, setShowImport] = useState(false);
+  const [stockSummary, setStockSummary] = useState({});
+  const [poModal, setPoModal] = useState(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [showColPicker, setShowColPicker] = useState(false);
+  const [visibleCols, setVisibleCols] = useState({photo:true,sku:true,name:true,category:true,mfg:true,stock:true,available:true,onOrder:true,cost:true,price:true,margin:true});
+  const toggleCol = col => setVisibleCols(v => ({...v,[col]:!v[col]}));
+  const fileRef = useRef();
+  const photoRef = useRef();
 
   useEffect(() => { fetchItems(); fetchStockSummary(); }, []);
 
   const fetchStockSummary = async () => {
-                  try { const r = await api.get('/inventory/stock-summary'); setStockSummary(r.data); } catch(e) {}
+    try { const r = await api.get('/inventory/stock-summary'); setStockSummary(r.data); } catch(e) {}
   };
 
   const fetchItems = async () => {
-                  try { setLoading(true); const r = await api.get('/inventory'); setItems(r.data); } catch(e) { toast.error('Failed to load inventory'); } finally { setLoading(false); }
+    try { setLoading(true); const r = await api.get('/inventory'); setItems(r.data); } catch(e) { toast.error('Failed to load inventory'); } finally { setLoading(false); }
   };
 
   const openAdd = () => { setForm(EMPTY_ITEM); setEditing(null); setErrors({}); setPhotoFile(null); setPhotoPreview(null); setShowModal(true); };
@@ -63,17 +67,17 @@ export default function Inventory() {
   const handlePhotoChange = (e) => { const file = e.target.files[0]; if (!file) return; if (!['image/png','image/jpeg'].includes(file.type)) { toast.error('Only PNG or JPEG allowed'); return; } setPhotoFile(file); const reader = new FileReader(); reader.onload = ev => setPhotoPreview(ev.target.result); reader.readAsDataURL(file); };
 
   const handleSave = async () => {
-                  try {
-                                    let photoUrl = form.photo_url;
-                                    if (photoFile) { const fd = new FormData(); fd.append('photo', photoFile); const uploadRes = await api.post('/inventory/upload-photo', fd, { headers: { 'Content-Type': 'multipart/form-data' } }); photoUrl = uploadRes.data.url; }
-                                    const payload = { ...form, photo_url: photoUrl };
-                                    if (editing) { await api.put(`/inventory/${editing}`, payload); toast.success('Item updated'); } else { await api.post('/inventory', payload); toast.success('Item added'); }
-                                    closeModal(); fetchItems();
-                  } catch(err) {
-                                    const errs = err.response?.data?.errors;
-                                    if (errs?.length) { const errMap = {}; errs.forEach(e => { errMap[e.field] = e.message; }); setErrors(errMap); toast.error(errs[0].message); setTimeout(() => { document.querySelector('.field-error')?.scrollIntoView({ behavior:'smooth', block:'center' }); }, 100); }
-                                    else { toast.error(err.response?.data?.error || 'Failed to save item'); }
-                  }
+    try {
+      let photoUrl = form.photo_url;
+      if (photoFile) { const fd = new FormData(); fd.append('photo', photoFile); const uploadRes = await api.post('/inventory/upload-photo', fd, { headers: { 'Content-Type': 'multipart/form-data' } }); photoUrl = uploadRes.data.url; }
+      const payload = { ...form, photo_url: photoUrl };
+      if (editing) { await api.put(`/inventory/${editing}`, payload); toast.success('Item updated'); } else { await api.post('/inventory', payload); toast.success('Item added'); }
+      closeModal(); fetchItems();
+    } catch(err) {
+      const errs = err.response?.data?.errors;
+      if (errs?.length) { const errMap = {}; errs.forEach(e => { errMap[e.field] = e.message; }); setErrors(errMap); toast.error(errs[0].message); setTimeout(() => { document.querySelector('.field-error')?.scrollIntoView({ behavior:'smooth', block:'center' }); }, 100); }
+      else { toast.error(err.response?.data?.error || 'Failed to save item'); }
+    }
   };
 
   const handlePushToShopify = async () => { if (!editing) return; setPushingShopify(true); try { await api.post(`/inventory/${editing}/push-to-shopify`, form); toast.success('Pushed to Shopify successfully'); } catch(e) { toast.error(e.response?.data?.error || 'Push to Shopify failed'); } finally { setPushingShopify(false); } };
@@ -83,14 +87,14 @@ export default function Inventory() {
   const toggleManufactured = async (item, e) => { e.stopPropagation(); try { await api.put(`/inventory/${item.id}`, { ...item, is_manufactured: !item.is_manufactured }); setItems(prev => prev.map(x => x.id===item.id ? {...x, is_manufactured: !item.is_manufactured} : x)); } catch(e) { toast.error('Failed to update'); } };
 
   const handleBulkUpdate = async () => {
-                  if (!selectedIds.length) return toast.error('No items selected');
-                  const payload = { ids: selectedIds };
-                  if (bulkForm.weight !== '') payload.weight = bulkForm.weight;
-                  if (bulkForm.harmonized_code !== '') payload.harmonized_code = bulkForm.harmonized_code;
-                  if (bulkForm.length !== '') payload.length = bulkForm.length;
-                  if (bulkForm.width !== '') payload.width = bulkForm.width;
-                  if (bulkForm.height !== '') payload.height = bulkForm.height;
-                  if (bulkForm.is_manufactured !== '') payload.is_manufactured = bulkForm.is_manufactured === 'true';
+    if (!selectedIds.length) return toast.error('No items selected');
+    const payload = { ids: selectedIds };
+    if (bulkForm.weight !== '') payload.weight = bulkForm.weight;
+    if (bulkForm.harmonized_code !== '') payload.harmonized_code = bulkForm.harmonized_code;
+    if (bulkForm.length !== '') payload.length = bulkForm.length;
+    if (bulkForm.width !== '') payload.width = bulkForm.width;
+    if (bulkForm.height !== '') payload.height = bulkForm.height;
+    if (bulkForm.is_manufactured !== '') payload.is_manufactured = bulkForm.is_manufactured === 'true';
     try { await api.put('/inventory/bulk/update', payload); toast.success(`Updated ${selectedIds.length} items`); setShowBulkModal(false); setSelectedIds([]); fetchItems(); } catch(e) { toast.error('Bulk update failed'); }
   };
 
@@ -103,7 +107,7 @@ export default function Inventory() {
     try { const r = await api.post('/inventory/import', { items: parsed, source: 'csv' }); toast.success(r.data.message); fetchItems(); setShowImport(false); } catch(e) { toast.error('Import failed'); }
   };
 
-  const downloadSampleCSV = () => { const csv = 'sku,name,description,cost,price,quantity,category,brand,weight,harmonized_code\nSKU001,Sample Product,Description,10.00,19.99,50,Electronics,BrandName,1.5,8471.30'; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download = 'inventory_template.csv'; a.click(); };
+  const downloadSampleCSV = () => { const csv = 'sku,name,description,cost,price,quantity,category,brand,weight,harmonized_code,barcode\nSKU001,Sample Product,Description,10.00,19.99,50,Electronics,BrandName,1.5,8471.30,012345678901'; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download = 'inventory_template.csv'; a.click(); };
 
   const toggleSelect = (id, e) => { e.stopPropagation(); setSelectedIds(s => s.includes(id) ? s.filter(x=>x!==id) : [...s,id]); };
   const toggleSelectAll = () => setSelectedIds(s => s.length===filtered.length ? [] : filtered.map(i=>i.id));
@@ -111,11 +115,16 @@ export default function Inventory() {
   const categories = [...new Set(items.map(i=>i.category).filter(Boolean))].sort();
 
   const filtered = items.filter(i => {
-    const matchSearch = !search || i.sku?.toLowerCase().includes(search.toLowerCase()) || i.name?.toLowerCase().includes(search.toLowerCase());
+    const s = search.toLowerCase();
+    const matchSearch = !search ||
+      i.sku?.toLowerCase().includes(s) ||
+      i.name?.toLowerCase().includes(s) ||
+      i.barcode?.toLowerCase().includes(s);
     const matchCat = !filterCategory || i.category === filterCategory;
     const matchPriceMin = !filterPriceMin || parseFloat(i.price||0) >= parseFloat(filterPriceMin);
     const matchPriceMax = !filterPriceMax || parseFloat(i.price||0) <= parseFloat(filterPriceMax);
-    const matchArchived = showArchived ? i.is_archived : !i.is_archived;     return matchSearch && matchCat && matchPriceMin && matchPriceMax && matchArchived;
+    const matchArchived = showArchived ? i.is_archived : !i.is_archived;
+    return matchSearch && matchCat && matchPriceMin && matchPriceMax && matchArchived;
   });
 
   const iProps = { form, errors, onChange: handleChange };
@@ -135,7 +144,7 @@ export default function Inventory() {
       <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
         <div className="search-bar" style={{flex:1,minWidth:200,margin:0}}>
           <Search size={16} className="search-icon"/>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by SKU or name..." className="search-input"/>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name, SKU or barcode..." className="search-input"/>
         </div>
         <select value={filterCategory} onChange={e=>setFilterCategory(e.target.value)} style={{padding:'8px 12px',borderRadius:8,border:'1px solid rgba(255,255,255,.12)',background:'var(--bg-secondary,#1a1a2e)',color:'inherit',fontSize:13,minWidth:130}}>
           <option value="">All Categories</option>
@@ -147,8 +156,20 @@ export default function Inventory() {
           <span style={{opacity:.4}}>-</span>
           <input value={filterPriceMax} onChange={e=>setFilterPriceMax(e.target.value)} placeholder="Max" type="number" style={{width:70,padding:'7px 10px',borderRadius:8,border:'1px solid rgba(255,255,255,.12)',background:'var(--bg-secondary,#1a1a2e)',color:'inherit',fontSize:13}}/>
         </div>
-        <button onClick={()=>setShowArchived(s=>!s)} style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${showArchived?'#f59e0b':'rgba(255,255,255,.15)'}`,background:showArchived?'rgba(245,158,11,.15)':'none',cursor:'pointer',color:showArchived?'#f59e0b':'inherit',fontSize:12,whiteSpace:'nowrap'}}>📦 {showArchived?'Hide Archived':'Show Archived'}</button>       {hasFilters && <button onClick={()=>{setSearch('');setFilterCategory('');setFilterPriceMin('');setFilterPriceMax('');}} style={{padding:'7px 12px',borderRadius:8,border:'1px solid rgba(255,255,255,.15)',background:'none',cursor:'pointer',color:'inherit',fontSize:12,opacity:.7}}>Clear filters</button>}
-        <div style={{position:'relative'}}>           <button onClick={()=>setShowColPicker(s=>!s)} style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${showColPicker?'#6366f1':'rgba(255,255,255,.15)'}`,background:showColPicker?'rgba(99,102,241,.15)':'none',cursor:'pointer',color:showColPicker?'#6366f1':'inherit',fontSize:12}}>⚙ Columns</button>           {showColPicker&&<div style={{position:'absolute',right:0,top:'110%',background:'#1e1e2e',border:'1px solid rgba(255,255,255,.15)',borderRadius:10,padding:'12px',zIndex:100,minWidth:160,boxShadow:'0 8px 32px rgba(0,0,0,.4)'}}>             {[['photo','Photo'],['sku','SKU'],['name','Name'],['category','Category'],['mfg','Mfg?'],['stock','Stock'],['available','Available'],['onOrder','On Order'],['cost','Cost'],['price','Price'],['margin','Margin']].map(([key,label])=>(               <label key={key} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',cursor:'pointer',fontSize:13}}>                 <input type="checkbox" checked={!!visibleCols[key]} onChange={()=>toggleCol(key)} style={{width:14,height:14}}/>                 {label}               </label>             ))}           </div>}         </div>         <span style={{fontSize:12,opacity:.45}}>{filtered.length} shown</span>
+        <button onClick={()=>setShowArchived(s=>!s)} style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${showArchived?'#f59e0b':'rgba(255,255,255,.15)'}`,background:showArchived?'rgba(245,158,11,.15)':'none',cursor:'pointer',color:showArchived?'#f59e0b':'inherit',fontSize:12,whiteSpace:'nowrap'}}>📦 {showArchived?'Hide Archived':'Show Archived'}</button>
+        {hasFilters && <button onClick={()=>{setSearch('');setFilterCategory('');setFilterPriceMin('');setFilterPriceMax('');}} style={{padding:'7px 12px',borderRadius:8,border:'1px solid rgba(255,255,255,.15)',background:'none',cursor:'pointer',color:'inherit',fontSize:12,opacity:.7}}>Clear filters</button>}
+        <div style={{position:'relative'}}>
+          <button onClick={()=>setShowColPicker(s=>!s)} style={{padding:'7px 12px',borderRadius:8,border:`1px solid ${showColPicker?'#6366f1':'rgba(255,255,255,.15)'}`,background:showColPicker?'rgba(99,102,241,.15)':'none',cursor:'pointer',color:showColPicker?'#6366f1':'inherit',fontSize:12}}>⚙ Columns</button>
+          {showColPicker&&<div style={{position:'absolute',right:0,top:'110%',background:'#1e1e2e',border:'1px solid rgba(255,255,255,.15)',borderRadius:10,padding:'12px',zIndex:100,minWidth:160,boxShadow:'0 8px 32px rgba(0,0,0,.4)'}}>
+            {[['photo','Photo'],['sku','SKU'],['name','Name'],['category','Category'],['mfg','Mfg?'],['stock','Stock'],['available','Available'],['onOrder','On Order'],['cost','Cost'],['price','Price'],['margin','Margin']].map(([key,label])=>(
+              <label key={key} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',cursor:'pointer',fontSize:13}}>
+                <input type="checkbox" checked={!!visibleCols[key]} onChange={()=>toggleCol(key)} style={{width:14,height:14}}/>
+                {label}
+              </label>
+            ))}
+          </div>}
+        </div>
+        <span style={{fontSize:12,opacity:.45}}>{filtered.length} shown</span>
       </div>
 
       {loading ? <div className="loading">Loading...</div> : (
@@ -156,22 +177,39 @@ export default function Inventory() {
           <table className="data-table">
             <thead><tr>
               <th><input type="checkbox" checked={selectedIds.length===filtered.length&&filtered.length>0} onChange={toggleSelectAll}/></th>
-              {visibleCols.photo&&<th>Photo</th>}{visibleCols.sku&&<th>SKU</th>}{visibleCols.name&&<th>Name</th>}{visibleCols.category&&<th>Category</th>}{visibleCols.mfg&&<th>Mfg?</th>}{visibleCols.stock&&<th>Stock</th>}{visibleCols.available&&<th>Available</th>}{visibleCols.onOrder&&<th>On Order</th>}{visibleCols.cost&&<th>Cost</th>}{visibleCols.price&&<th>Price</th>}{visibleCols.margin&&<th>Margin</th>}
+              {visibleCols.photo&&<th>Photo</th>}
+              {visibleCols.sku&&<th>SKU</th>}
+              {visibleCols.name&&<th>Name</th>}
+              {visibleCols.category&&<th>Category</th>}
+              {visibleCols.mfg&&<th>Mfg?</th>}
+              {visibleCols.stock&&<th>Stock</th>}
+              {visibleCols.available&&<th>Available</th>}
+              {visibleCols.onOrder&&<th>On Order</th>}
+              {visibleCols.cost&&<th>Cost</th>}
+              {visibleCols.price&&<th>Price</th>}
+              {visibleCols.margin&&<th>Margin</th>}
             </tr></thead>
             <tbody>
               {filtered.map(item=>(
                 <tr key={item.id} className={`hover-row${item.quantity<=item.low_stock_threshold?' low-stock-row':''}`} onClick={()=>openEdit(item)} style={{cursor:'pointer'}}>
                   <td onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={e=>toggleSelect(item.id,e)}/></td>
-                 {visibleCols.photo&&<td>{item.photo_url ? <img src={item.photo_url} alt="" style={{width:36,height:36,borderRadius:6,objectFit:'cover'}}/> : <div style={{width:36,height:36,borderRadius:6,background:'rgba(255,255,255,.06)',display:'flex',alignItems:'center',justifyContent:'center'}}><Package size={18} style={{opacity:.3}}/></div>}</td>}
-                {visibleCols.sku&&<td><code style={{fontSize:12}}>{item.sku}</code></td>}
-                 {visibleCols.name&&<td><div style={{display:'flex',alignItems:'center',gap:6}}>{item.name}{item.is_manufactured && <span title="Manufactured"><Factory size={13} style={{color:'#8b5cf6'}}/></span>}{item.shopify_product_id && <span title="Synced with Shopify" style={{fontSize:10,padding:'1px 5px',borderRadius:4,background:'rgba(16,185,129,.15)',color:'#10b981',fontWeight:600}}>SHF</span>}</div></td>}
+                  {visibleCols.photo&&<td>{item.photo_url ? <img src={item.photo_url} alt="" style={{width:36,height:36,borderRadius:6,objectFit:'cover'}}/> : <div style={{width:36,height:36,borderRadius:6,background:'rgba(255,255,255,.06)',display:'flex',alignItems:'center',justifyContent:'center'}}><Package size={18} style={{opacity:.3}}/></div>}</td>}
+                  {visibleCols.sku&&<td><code style={{fontSize:12}}>{item.sku}</code></td>}
+                  {visibleCols.name&&<td>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      {item.name}
+                      {item.is_manufactured && <span title="Manufactured"><Factory size={13} style={{color:'#8b5cf6'}}/></span>}
+                      {item.shopify_product_id && <span title="Synced with Shopify" style={{fontSize:10,padding:'1px 5px',borderRadius:4,background:'rgba(16,185,129,.15)',color:'#10b981',fontWeight:600}}>SHF</span>}
+                    </div>
+                    {item.barcode && <div style={{fontSize:11,opacity:.45,marginTop:2,display:'flex',alignItems:'center',gap:3}}><span style={{fontFamily:'monospace'}}>{item.barcode}</span></div>}
+                  </td>}
                   {visibleCols.category&&<td>{item.category||'—'}</td>}
-                 {visibleCols.mfg&&<td onClick={e=>e.stopPropagation()}><input type="checkbox" checked={!!item.is_manufactured} onChange={e=>toggleManufactured(item,e)} title="Toggle manufactured" style={{width:16,height:16,cursor:'pointer'}}/></td>}
+                  {visibleCols.mfg&&<td onClick={e=>e.stopPropagation()}><input type="checkbox" checked={!!item.is_manufactured} onChange={e=>toggleManufactured(item,e)} title="Toggle manufactured" style={{width:16,height:16,cursor:'pointer'}}/></td>}
                   <td><span style={{color:item.quantity<=item.low_stock_threshold?'#ef4444':'inherit',fontWeight:item.quantity<=item.low_stock_threshold?600:400}}>{item.quantity}{item.quantity<=item.low_stock_threshold&&<AlertTriangle size={12} style={{marginLeft:4,display:'inline'}}/>}</span></td>
                   <td><span style={{color:item.quantity<=item.low_stock_threshold?'#ef4444':'inherit'}}>{item.quantity}</span></td>
                   <td>{stockSummary[item.id]?.on_order > 0 ? <button onClick={e=>{e.stopPropagation();setPoModal({item,pos:stockSummary[item.id].open_pos});}} style={{color:'#3b82f6',background:'none',border:'none',cursor:'pointer',fontWeight:700,fontSize:13,textDecoration:'underline'}}>{stockSummary[item.id].on_order}</button> : <span style={{opacity:.3}}>0</span>}</td>
                   <td>${parseFloat(item.cost||0).toFixed(2)}</td>
-                <td>${parseFloat(item.price||0).toFixed(2)}</td>
+                  <td>${parseFloat(item.price||0).toFixed(2)}</td>
                   <td><span style={{color:parseFloat(item.price)>parseFloat(item.cost)?'#10b981':'#ef4444',fontWeight:600}}>{item.price&&item.cost&&parseFloat(item.price)>0?((parseFloat(item.price)-parseFloat(item.cost))/parseFloat(item.price)*100).toFixed(1)+'%':'—'}</span></td>
                 </tr>
               ))}
@@ -219,6 +257,24 @@ export default function Inventory() {
               </div>
             </div>
             <div className="modal-body">
+
+              {/* Basic Info — moved above photo */}
+              <div className="form-section-title">Basic Info</div>
+              <div className="form-grid-2">
+                <InputField field="sku" {...iProps}/>
+                <InputField field="name" {...iProps}/>
+              </div>
+              <div className="form-grid-2">
+                <InputField field="barcode" {...iProps}/>
+                <div/>{/* spacer */}
+              </div>
+              <InputField field="description" {...iProps}/>
+              <div style={{display:'flex',alignItems:'center',gap:10,margin:'12px 0',padding:'10px 12px',background:'rgba(139,92,246,0.1)',borderRadius:8,border:'1px solid rgba(139,92,246,0.3)'}}>
+                <input type="checkbox" name="is_manufactured" id="is_manufactured" checked={!!form.is_manufactured} onChange={handleChange} style={{width:18,height:18,cursor:'pointer'}}/>
+                <label htmlFor="is_manufactured" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontWeight:500}}><Factory size={16} style={{color:'#8b5cf6'}}/> Manufactured Product <span style={{fontSize:12,opacity:.6,fontWeight:400}}>— has a Bill of Materials</span></label>
+              </div>
+
+              {/* Product Photo — moved below basic info */}
               <div className="form-section-title">Product Photo</div>
               <div style={{display:'flex',gap:16,alignItems:'flex-start',marginBottom:16}}>
                 <div style={{width:100,height:100,borderRadius:10,border:'2px dashed rgba(255,255,255,.15)',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0,background:'rgba(255,255,255,.03)'}}>
@@ -233,13 +289,7 @@ export default function Inventory() {
                   <input name="photo_url" value={form.photo_url||''} onChange={handleChange} className="form-input" placeholder="https://..." style={{fontSize:12}}/>
                 </div>
               </div>
-              <div className="form-section-title">Basic Info</div>
-              <div className="form-grid-2"><InputField field="sku" {...iProps}/><InputField field="name" {...iProps}/></div>
-              <InputField field="description" {...iProps}/>
-              <div style={{display:'flex',alignItems:'center',gap:10,margin:'12px 0',padding:'10px 12px',background:'rgba(139,92,246,0.1)',borderRadius:8,border:'1px solid rgba(139,92,246,0.3)'}}>
-                <input type="checkbox" name="is_manufactured" id="is_manufactured" checked={!!form.is_manufactured} onChange={handleChange} style={{width:18,height:18,cursor:'pointer'}}/>
-                <label htmlFor="is_manufactured" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontWeight:500}}><Factory size={16} style={{color:'#8b5cf6'}}/> Manufactured Product <span style={{fontSize:12,opacity:.6,fontWeight:400}}>— has a Bill of Materials</span></label>
-              </div>
+
               <div className="form-section-title">Pricing & Stock</div>
               <div className="form-grid-4"><InputField field="cost" {...iProps}/><InputField field="price" {...iProps}/><InputField field="quantity" {...iProps}/><InputField field="low_stock_threshold" {...iProps}/></div>
               <div className="form-section-title">Shopify Classification</div>
@@ -301,7 +351,6 @@ export default function Inventory() {
         .form-section-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin:20px 0 12px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px}
         .form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
         .form-grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
-        .large-modal{max-width:800
         .large-modal{max-width:800px!important}
         .btn-icon{background:none;border:none;cursor:pointer;padding:4px;border-radius:4px;opacity:.6}
         .btn-icon:hover{opacity:1;background:rgba(255,255,255,0.1)}
