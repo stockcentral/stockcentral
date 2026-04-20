@@ -36,7 +36,7 @@ router.get('/', async (req, res) => {
                   const { search, category, low_stock, manufactured } = req.query;
                   let query = 'SELECT * FROM inventory_items WHERE 1=1';
                   const params = [];
-                  if (search) { params.push(`%${search}%`); query += ` AND (sku ILIKE $${params.length} OR name ILIKE $${params.length})`; }
+                  if (search) { params.push(`%${search}%`); query += ` AND (sku ILIKE $${params.length} OR name ILIKE $${params.length} OR barcode ILIKE $${params.length})`; }
                   if (category) { params.push(category); query += ` AND category=$${params.length}`; }
                   if (low_stock==='true') query += ' AND quantity<=low_stock_threshold';
                   if (manufactured==='true') query += ' AND is_manufactured=true';
