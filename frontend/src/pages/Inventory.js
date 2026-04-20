@@ -33,6 +33,7 @@ export default function Inventory() {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [pushingShopify, setPushingShopify] = useState(false);
+  const [shopifyPushMode, setShopifyPushMode] = useState('manual');
   const [selectedIds, setSelectedIds] = useState([]);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkForm, setBulkForm] = useState({ weight:'', length:'', width:'', height:'', harmonized_code:'', is_manufactured:'' });
@@ -46,7 +47,11 @@ export default function Inventory() {
   const fileRef = useRef();
   const photoRef = useRef();
 
-  useEffect(() => { fetchItems(); fetchStockSummary(); }, []);
+  useEffect(() => { fetchItems(); fetchStockSummary(); fetchShopifyPushMode(); }, []);
+
+  const fetchShopifyPushMode = async () => {
+    try { const r = await api.get("/settings/general"); setShopifyPushMode(r.data?.shopify_push_mode || 'manual'); } catch(e) {}
+  };
 
   const fetchStockSummary = async () => {
     try { const r = await api.get('/inventory/stock-summary'); setStockSummary(r.data); } catch(e) {}
@@ -67,11 +72,19 @@ export default function Inventory() {
   const handlePhotoChange = (e) => { const file = e.target.files[0]; if (!file) return; if (!['image/png','image/jpeg'].includes(file.type)) { toast.error('Only PNG or JPEG allowed'); return; } setPhotoFile(file); const reader = new FileReader(); reader.onload = ev => setPhotoPreview(ev.target.result); reader.readAsDataURL(file); };
 
   const handleSave = async () => {
+    // auto-push to shopify after save if mode is auto
     try {
       let photoUrl = form.photo_url;
       if (photoFile) { const fd = new FormData(); fd.append('photo', photoFile); const uploadRes = await api.post('/inventory/upload-photo', fd, { headers: { 'Content-Type': 'multipart/form-data' } }); photoUrl = uploadRes.data.url; }
       const payload = { ...form, photo_url: photoUrl };
-      if (editing) { await api.put(`/inventory/${editing}`, payload); toast.success('Item updated'); } else { await api.post('/inventory', payload); toast.success('Item added'); }
+      if (editing) {
+        await api.put(`/inventory/${editing}`, payload);
+        toast.success('Item updated');
+        // Auto-push to Shopify if mode is auto and item is linked
+        if (shopifyPushMode === 'auto' && payload.shopify_product_id) {
+          try { await api.post(`/inventory/${editing}/push-to-shopify`, payload); toast.success('Pushed to Shopify'); } catch(e) { toast.error('Shopify push failed: ' + (e.response?.data?.error || e.message)); }
+        }
+      } else { await api.post('/inventory', payload); toast.success('Item added'); }
       closeModal(); fetchItems();
     } catch(err) {
       const errs = err.response?.data?.errors;
@@ -252,7 +265,7 @@ export default function Inventory() {
             <div className="modal-header">
               <h2>{editing?'Edit Item':'Add New Item'}</h2>
               <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                {editing && <button className="btn btn-secondary" style={{fontSize:12,padding:'5px 12px',display:'flex',alignItems:'center',gap:5}} onClick={handlePushToShopify} disabled={pushingShopify}>{pushingShopify ? <RefreshCw size={13} style={{animation:'spin 1s linear infinite'}}/> : <ArrowUpRight size={13}/>}{pushingShopify ? 'Pushing...' : 'Push to Shopify'}</button>}
+                {editing && shopifyPushMode === 'manual' && <button className="btn btn-secondary" style={{fontSize:12,padding:'5px 12px',display:'flex',alignItems:'center',gap:5}} onClick={handlePushToShopify} disabled={pushingShopify}>{pushingShopify ? <RefreshCw size={13} style={{animation:'spin 1s linear infinite'}}/> : <ArrowUpRight size={13}/>}{pushingShopify ? 'Pushing...' : 'Push to Shopify'}</button>}
                 <button className="modal-close" onClick={closeModal}><X size={18}/></button>
               </div>
             </div>
