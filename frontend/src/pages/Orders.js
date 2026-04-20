@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
-import { Search, ChevronUp, ChevronDown, X, Plus, Clock, User, Edit2, Trash2, Package, AlertTriangle, Factory } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, X, Plus, Clock, User, Edit2, Trash2, Package, AlertTriangle, Factory, Copy, Check } from 'lucide-react';
 
 const fmt = (n) => `$${parseFloat(n||0).toFixed(2)}`;
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
@@ -33,6 +33,22 @@ function StockPill({ label, value, color, onClick, isLink }) {
   );
 }
 
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  const copy = (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <button onClick={copy} title="Copy SKU" style={{background:'none',border:'none',cursor:'pointer',padding:'1px 3px',borderRadius:4,color:copied?'#10b981':'rgba(255,255,255,.35)',display:'inline-flex',alignItems:'center',transition:'color .15s',verticalAlign:'middle'}}>
+      {copied ? <Check size={11}/> : <Copy size={11}/>}
+    </button>
+  );
+}
+
 export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,9 +67,11 @@ export default function Orders() {
   const [onOrderModal, setOnOrderModal] = useState(null);
   const [selectedItems, setSelectedItems] = useState([]);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
- const [showNewOrder, setShowNewOrder] = useState(false);
+  const [showNewOrder, setShowNewOrder] = useState(false);
   const [quoteMode, setQuoteMode] = useState('new');
   const [existingQuoteId, setExistingQuoteId] = useState('');
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(true);
 
   useEffect(() => { fetchOrders(); fetchStatuses(); }, [sort, dir]);
 
@@ -73,6 +91,7 @@ export default function Orders() {
   const openOrder = async (order) => {
     setSel(order); setDetail(null); setNotes([]); setSelectedItems([]);
     setSelectedNote(null); setEditingNote(null); setNoteText('');
+    setActivityOpen(false); setNotesOpen(true);
     setLoadingDetail(true);
     try {
       const [dR, nR] = await Promise.all([api.get(`/orders/${order.id}`), api.get(`/orders/${order.id}/notes`)]);
@@ -93,17 +112,6 @@ export default function Orders() {
       }
       toast.success(`Status: ${statusName}`);
     } catch(e) { toast.error('Failed'); }
-  };
-
-  const markCancelled = async (orderId) => {
-    if (!window.confirm('Mark this order as cancelled?')) return;
-    const cs = statuses.find(s=>s.name.toLowerCase()==='cancelled');
-    if (cs) { await updateStatus(orderId, cs.id, cs.name); }
-    else {
-      setOrders(prev=>prev.map(o=>o.id===orderId?{...o,status_name:'Cancelled',status_color:'#ef4444'}:o));
-      if (sel?.id===orderId) setSel(prev=>({...prev,status_name:'Cancelled',status_color:'#ef4444'}));
-      toast.success('Marked cancelled');
-    }
   };
 
   const addNote = async () => {
@@ -209,7 +217,6 @@ export default function Orders() {
                     <td onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()}>
                       <select value={order.custom_status_id||''} onChange={e=>{const s=statuses.find(x=>x.id===e.target.value);if(s)updateStatus(order.id,s.id,s.name);}}
                         style={{padding:'4px 8px',borderRadius:12,border:'none',cursor:'pointer',fontWeight:600,fontSize:12,background:`${sColor}22`,color:sColor,outline:'none'}}>
-                        
                         {statuses.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
                       </select>
                     </td>
@@ -232,13 +239,11 @@ export default function Orders() {
                   <span style={{fontSize:18,fontWeight:700}}>Order #{sel.order_number}</span>
                   <select value={sel.custom_status_id||''} onChange={e=>{const s=statuses.find(x=>x.id===e.target.value);if(s)updateStatus(sel.id,s.id,s.name);}}
                     style={{padding:'4px 12px',borderRadius:20,border:'none',cursor:'pointer',fontWeight:600,fontSize:12,background:`${getStatus(sel).color}22`,color:getStatus(sel).color,outline:'none'}}>
-                    
                     {statuses.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
                 <div style={{fontSize:12,opacity:.4,marginTop:2}}>{fmtDate(sel.created_at)}</div>
               </div>
-             
               <button onClick={closeOrder} style={{background:'none',border:'none',cursor:'pointer',color:'inherit',opacity:.5,padding:4}}><X size={18}/></button>
             </div>
 
@@ -247,6 +252,7 @@ export default function Orders() {
               <div style={{padding:'20px 24px',borderRight:'1px solid rgba(255,255,255,.06)',display:'flex',flexDirection:'column',gap:18,overflowY:'auto'}}>
                 {loadingDetail ? <div style={{textAlign:'center',padding:48,opacity:.5}}>Loading...</div> : detail && (<>
 
+                  {/* Line Items */}
                   <div style={{background:'rgba(255,255,255,.03)',borderRadius:10,border:'1px solid rgba(255,255,255,.07)',overflow:'hidden'}}>
                     <div style={{padding:'10px 16px',borderBottom:'1px solid rgba(255,255,255,.07)',display:'flex',justifyContent:'space-between',alignItems:'center',background:'rgba(255,255,255,.02)'}}>
                       <span style={{fontWeight:600,fontSize:13}}>Line Items</span>
@@ -276,9 +282,15 @@ export default function Orders() {
                                 {inv?.is_manufactured && <span style={{fontSize:10,padding:'2px 6px',borderRadius:4,background:'rgba(139,92,246,.2)',color:'#a78bfa',fontWeight:600,display:'inline-flex',alignItems:'center',gap:3}}><Factory size={9}/>Mfg</span>}
                                 {!inv && <span style={{fontSize:11,color:'#f59e0b',fontStyle:'italic'}}>Not in inventory</span>}
                               </div>
-                              <div style={{fontSize:12,opacity:.5}}>
-                                {inv?.sku&&<span>SKU: {inv.sku} &nbsp;&middot;&nbsp; </span>}
-                                Qty ordered: <strong>{item.quantity}</strong>
+                              <div style={{fontSize:12,opacity:.5,display:'flex',alignItems:'center',gap:0,flexWrap:'wrap'}}>
+                                {inv?.sku && (
+                                  <span style={{display:'inline-flex',alignItems:'center',gap:1}}>
+                                    SKU: <span style={{fontFamily:'monospace'}}>{inv.sku}</span>
+                                    <CopyButton text={inv.sku}/>
+                                    <span style={{margin:'0 4px'}}>&middot;</span>
+                                  </span>
+                                )}
+                                Qty ordered: <strong style={{marginLeft:3}}>{item.quantity}</strong>
                                 {item.price&&<span> &nbsp;&middot;&nbsp; {fmt(item.price)}/ea</span>}
                               </div>
                             </div>
@@ -289,13 +301,7 @@ export default function Orders() {
                                 <div style={{width:1,background:'rgba(255,255,255,.08)'}}/>
                                 <StockPill label="Available" value={available} color={availColor}/>
                                 <div style={{width:1,background:'rgba(255,255,255,.08)'}}/>
-                                <StockPill
-                                  label="On Order"
-                                  value={onOrder}
-                                  color={onOrder>0?'#3b82f6':'inherit'}
-                                  isLink={onOrder>0}
-                                  onClick={onOrder>0?()=>setOnOrderModal({itemName:item.name,open_pos:openPOs}):null}
-                                />
+                                <StockPill label="On Order" value={onOrder} color={onOrder>0?'#3b82f6':'inherit'} isLink={onOrder>0} onClick={onOrder>0?()=>setOnOrderModal({itemName:item.name,open_pos:openPOs}):null}/>
                               </div>
                             )}
                           </div>
@@ -334,85 +340,106 @@ export default function Orders() {
                     })}
                   </div>
 
+                  {/* Notes — accordion, open by default */}
                   <div style={{background:'rgba(255,255,255,.03)',borderRadius:10,border:'1px solid rgba(255,255,255,.07)'}}>
-                    <div style={{padding:'10px 16px',borderBottom:'1px solid rgba(255,255,255,.07)',background:'rgba(255,255,255,.02)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                      <span style={{fontWeight:600,fontSize:13}}>Notes</span>
-                      <span style={{fontSize:11,opacity:.35}}>Click a note to edit or delete</span>
-                    </div>
-                    <div style={{padding:'14px 16px'}}>
-                      <div style={{display:'flex',gap:8,marginBottom:14,alignItems:'flex-end'}}>
-                        <textarea value={noteText} onChange={e=>setNoteText(e.target.value)}
-                          className="form-input" rows={2} style={{flex:1,resize:'vertical',fontSize:13}}
-                          placeholder="Add a note... (Cmd+Enter to submit)"
-                          onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();addNote();}}}/>
-                        <button className="btn btn-primary" style={{fontSize:12,padding:'7px 16px',alignSelf:'stretch'}} onClick={addNote}>Submit</button>
+                    <div
+                      onClick={()=>setNotesOpen(o=>!o)}
+                      style={{padding:'10px 16px',borderBottom:notesOpen?'1px solid rgba(255,255,255,.07)':'none',background:'rgba(255,255,255,.02)',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',userSelect:'none',borderRadius:notesOpen?'10px 10px 0 0':'10px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <span style={{fontWeight:600,fontSize:13}}>Notes</span>
+                        {!notesOpen && notes.filter(n=>n.note_type==='general'||n.note_type==='quote_link').length>0 &&
+                          <span style={{fontSize:11,opacity:.4}}>({notes.filter(n=>n.note_type==='general'||n.note_type==='quote_link').length})</span>}
                       </div>
-
-                      {notes.filter(n=>n.note_type==='general'||n.note_type==='quote_link').length===0
-                        ? <div style={{fontSize:12,opacity:.3,fontStyle:'italic',padding:'4px 0'}}>No notes yet.</div>
-                        : notes.filter(n=>n.note_type==='general'||n.note_type==='quote_link').map(n=>(
-                          <div key={n.id}
-                            onClick={()=>{if(editingNote!==n.id){setSelectedNote(selectedNote===n.id?null:n.id);}}}
-                            style={{padding:'10px 12px',borderRadius:8,marginBottom:6,cursor:'pointer',
-                              background:selectedNote===n.id?'rgba(99,102,241,.1)':'rgba(255,255,255,.03)',
-                              border:`1px solid ${selectedNote===n.id?'rgba(99,102,241,.35)':'rgba(255,255,255,.06)'}`,
-                              transition:'all .15s'}}>
-                            {editingNote===n.id ? (
-                              <div onClick={e=>e.stopPropagation()}>
-                                <textarea value={editText} onChange={e=>setEditText(e.target.value)}
-                                  className="form-input" rows={2} style={{width:'100%',fontSize:13,marginBottom:8,resize:'vertical'}}
-                                  autoFocus/>
-                                <div style={{display:'flex',gap:6}}>
-                                  <button className="btn btn-primary" style={{fontSize:12,padding:'4px 12px'}} onClick={()=>saveEdit(n.id)}>Save</button>
-                                  <button className="btn btn-ghost" style={{fontSize:12,padding:'4px 12px'}} onClick={()=>{setEditingNote(null);setSelectedNote(null);}}>Cancel</button>
-                                </div>
-                              </div>
-                            ) : (<>
-                              <div style={{fontSize:13,lineHeight:1.5}}>{n.note}</div>
-                              <div style={{fontSize:11,opacity:.4,marginTop:5,display:'flex',alignItems:'center',gap:5}}>
-                                <User size={10}/>{n.author_name||'System'} &middot; {fmtTime(n.created_at)}
-                                {n.updated_at&&n.updated_at!==n.created_at&&<span style={{opacity:.7}}>(edited)</span>}
-                              </div>
-                              {selectedNote===n.id&&(
-                                <div style={{display:'flex',gap:6,marginTop:8}} onClick={e=>e.stopPropagation()}>
-                                  <button onClick={()=>{setEditingNote(n.id);setEditText(n.note);setSelectedNote(null);}}
-                                    style={{fontSize:11,padding:'3px 10px',borderRadius:5,border:'1px solid rgba(255,255,255,.2)',background:'rgba(255,255,255,.05)',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:4,color:'inherit'}}>
-                                    <Edit2 size={10}/>Edit
-                                  </button>
-                                  <button onClick={()=>deleteNote(n.id)}
-                                    style={{fontSize:11,padding:'3px 10px',borderRadius:5,border:'1px solid rgba(239,68,68,.35)',background:'rgba(239,68,68,.06)',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:4,color:'#ef4444'}}>
-                                    <Trash2 size={10}/>Delete
-                                  </button>
-                                </div>
-                              )}
-                            </>)}
-                          </div>
-                        ))
-                      }
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        {notesOpen && <span style={{fontSize:11,opacity:.35}}>Click a note to edit or delete</span>}
+                        {notesOpen ? <ChevronUp size={14} style={{opacity:.5}}/> : <ChevronDown size={14} style={{opacity:.5}}/>}
+                      </div>
                     </div>
+                    {notesOpen && (
+                      <div style={{padding:'14px 16px'}}>
+                        <div style={{display:'flex',gap:8,marginBottom:14,alignItems:'flex-end'}}>
+                          <textarea value={noteText} onChange={e=>setNoteText(e.target.value)}
+                            className="form-input" rows={2} style={{flex:1,resize:'vertical',fontSize:13}}
+                            placeholder="Add a note... (Cmd+Enter to submit)"
+                            onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();addNote();}}}/>
+                          <button className="btn btn-primary" style={{fontSize:12,padding:'7px 16px',alignSelf:'stretch'}} onClick={addNote}>Submit</button>
+                        </div>
+                        {notes.filter(n=>n.note_type==='general'||n.note_type==='quote_link').length===0
+                          ? <div style={{fontSize:12,opacity:.3,fontStyle:'italic',padding:'4px 0'}}>No notes yet.</div>
+                          : notes.filter(n=>n.note_type==='general'||n.note_type==='quote_link').map(n=>(
+                            <div key={n.id}
+                              onClick={()=>{if(editingNote!==n.id){setSelectedNote(selectedNote===n.id?null:n.id);}}}
+                              style={{padding:'10px 12px',borderRadius:8,marginBottom:6,cursor:'pointer',
+                                background:selectedNote===n.id?'rgba(99,102,241,.1)':'rgba(255,255,255,.03)',
+                                border:`1px solid ${selectedNote===n.id?'rgba(99,102,241,.35)':'rgba(255,255,255,.06)'}`,
+                                transition:'all .15s'}}>
+                              {editingNote===n.id ? (
+                                <div onClick={e=>e.stopPropagation()}>
+                                  <textarea value={editText} onChange={e=>setEditText(e.target.value)}
+                                    className="form-input" rows={2} style={{width:'100%',fontSize:13,marginBottom:8,resize:'vertical'}}
+                                    autoFocus/>
+                                  <div style={{display:'flex',gap:6}}>
+                                    <button className="btn btn-primary" style={{fontSize:12,padding:'4px 12px'}} onClick={()=>saveEdit(n.id)}>Save</button>
+                                    <button className="btn btn-ghost" style={{fontSize:12,padding:'4px 12px'}} onClick={()=>{setEditingNote(null);setSelectedNote(null);}}>Cancel</button>
+                                  </div>
+                                </div>
+                              ) : (<>
+                                <div style={{fontSize:13,lineHeight:1.5}}>{n.note}</div>
+                                <div style={{fontSize:11,opacity:.4,marginTop:5,display:'flex',alignItems:'center',gap:5}}>
+                                  <User size={10}/>{n.author_name||'System'} &middot; {fmtTime(n.created_at)}
+                                  {n.updated_at&&n.updated_at!==n.created_at&&<span style={{opacity:.7}}>(edited)</span>}
+                                </div>
+                                {selectedNote===n.id&&(
+                                  <div style={{display:'flex',gap:6,marginTop:8}} onClick={e=>e.stopPropagation()}>
+                                    <button onClick={()=>{setEditingNote(n.id);setEditText(n.note);setSelectedNote(null);}}
+                                      style={{fontSize:11,padding:'3px 10px',borderRadius:5,border:'1px solid rgba(255,255,255,.2)',background:'rgba(255,255,255,.05)',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:4,color:'inherit'}}>
+                                      <Edit2 size={10}/>Edit
+                                    </button>
+                                    <button onClick={()=>deleteNote(n.id)}
+                                      style={{fontSize:11,padding:'3px 10px',borderRadius:5,border:'1px solid rgba(239,68,68,.35)',background:'rgba(239,68,68,.06)',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:4,color:'#ef4444'}}>
+                                      <Trash2 size={10}/>Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </>)}
+                            </div>
+                          ))
+                        }
+                      </div>
+                    )}
                   </div>
 
+                  {/* Order Activity — accordion, collapsed by default */}
                   <div style={{background:'rgba(255,255,255,.03)',borderRadius:10,border:'1px solid rgba(255,255,255,.07)'}}>
-                    <div style={{padding:'10px 16px',borderBottom:'1px solid rgba(255,255,255,.07)',background:'rgba(255,255,255,.02)'}}>
-                      <span style={{fontWeight:600,fontSize:13,display:'inline-flex',alignItems:'center',gap:6}}><Clock size={12}/>Order Activity</span>
+                    <div
+                      onClick={()=>setActivityOpen(o=>!o)}
+                      style={{padding:'10px 16px',borderBottom:activityOpen?'1px solid rgba(255,255,255,.07)':'none',background:'rgba(255,255,255,.02)',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',userSelect:'none',borderRadius:activityOpen?'10px 10px 0 0':'10px'}}>
+                      <span style={{fontWeight:600,fontSize:13,display:'inline-flex',alignItems:'center',gap:6}}>
+                        <Clock size={12}/>Order Activity
+                        {!activityOpen && notes.filter(n=>n.note_type==='status_change').length>0 &&
+                          <span style={{fontSize:11,opacity:.4,fontWeight:400}}>({notes.filter(n=>n.note_type==='status_change').length})</span>}
+                      </span>
+                      {activityOpen ? <ChevronUp size={14} style={{opacity:.5}}/> : <ChevronDown size={14} style={{opacity:.5}}/>}
                     </div>
-                    <div style={{padding:'14px 16px'}}>
-                      {notes.filter(n=>n.note_type==='status_change').length===0
-                        ? <div style={{fontSize:12,opacity:.3,fontStyle:'italic'}}>No activity yet.</div>
-                        : [...notes.filter(n=>n.note_type==='status_change')].reverse().map((n,i,arr)=>(
-                          <div key={n.id} style={{display:'flex',gap:12,paddingBottom:i<arr.length-1?12:0,marginBottom:i<arr.length-1?12:0,borderBottom:i<arr.length-1?'1px solid rgba(255,255,255,.05)':'none'}}>
-                            <div style={{display:'flex',flexDirection:'column',alignItems:'center',paddingTop:4}}>
-                              <div style={{width:8,height:8,borderRadius:'50%',background:'#6366f1',flexShrink:0}}/>
-                              {i<arr.length-1&&<div style={{width:1,flex:1,background:'rgba(99,102,241,.3)',marginTop:4}}/>}
+                    {activityOpen && (
+                      <div style={{padding:'14px 16px'}}>
+                        {notes.filter(n=>n.note_type==='status_change').length===0
+                          ? <div style={{fontSize:12,opacity:.3,fontStyle:'italic'}}>No activity yet.</div>
+                          : [...notes.filter(n=>n.note_type==='status_change')].reverse().map((n,i,arr)=>(
+                            <div key={n.id} style={{display:'flex',gap:12,paddingBottom:i<arr.length-1?12:0,marginBottom:i<arr.length-1?12:0,borderBottom:i<arr.length-1?'1px solid rgba(255,255,255,.05)':'none'}}>
+                              <div style={{display:'flex',flexDirection:'column',alignItems:'center',paddingTop:4}}>
+                                <div style={{width:8,height:8,borderRadius:'50%',background:'#6366f1',flexShrink:0}}/>
+                                {i<arr.length-1&&<div style={{width:1,flex:1,background:'rgba(99,102,241,.3)',marginTop:4}}/>}
+                              </div>
+                              <div style={{flex:1,paddingBottom:4}}>
+                                <div style={{fontSize:13}}>{n.note}</div>
+                                <div style={{fontSize:11,opacity:.4,marginTop:3}}>{fmtTime(n.created_at)}</div>
+                              </div>
                             </div>
-                            <div style={{flex:1,paddingBottom:4}}>
-                              <div style={{fontSize:13}}>{n.note}</div>
-                              <div style={{fontSize:11,opacity:.4,marginTop:3}}>{fmtTime(n.created_at)}</div>
-                            </div>
-                          </div>
-                        ))
-                      }
-                    </div>
+                          ))
+                        }
+                      </div>
+                    )}
                   </div>
                 </>)}
               </div>
