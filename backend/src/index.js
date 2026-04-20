@@ -11,6 +11,7 @@ const shopifyRouter = require('./routes/shopify');
 
 const settingsRouter = require('./routes/settings');
 const ordersRouter = require('./routes/orders');
+const emailRouter = require('./routes/email');
 const { rmaRouter, bomRouter, mfgRouter, invoiceRouter, paymentRouter } = require('./routes/operations');
 
 const app = express();
@@ -120,6 +121,7 @@ app.use('/api/bom', bomRouter);
 app.use('/api/manufacturing', mfgRouter);
 app.use('/api/invoices', invoiceRouter);
 app.use('/api/payments', paymentRouter);
+app.use('/api/email', emailRouter);
 
 
 app.use((err, req, res, next) => {
