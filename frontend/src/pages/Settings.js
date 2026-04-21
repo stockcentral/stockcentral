@@ -38,6 +38,10 @@ export default function Settings() {
   const [newTicket, setNewTicket] = useState({ name:'', color:'#6366f1' });
   const [orderStatuses, setOrderStatuses] = useState([]);
   const [newStatus, setNewStatus] = useState({ name:'', color:'#10b981', sort_order:99 });
+  const [rmaStatuses, setRmaStatuses] = useState([]);
+  const [newRmaStatus, setNewRmaStatus] = useState({ name:'', color:'#6366f1', sort_order:99 });
+  const [editingRmaStatus, setEditingRmaStatus] = useState(null);
+  const [editRmaForm, setEditRmaForm] = useState({});
   const [statusLog, setStatusLog] = useState([]);
   const [logLoading, setLogLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -49,16 +53,18 @@ export default function Settings() {
 
   const fetchAll = async () => {
     try {
-      const [sRes, wRes, tRes, osRes] = await Promise.all([
+      const [sRes, wRes, tRes, osRes, rmaRes] = await Promise.all([
         api.get('/settings/shopify').catch(() => ({ data:{} })),
         api.get('/settings/warranty').catch(() => ({ data:{ value:{ period_days:365, period_label:'1 Year' } } })),
         api.get('/settings/ticket-types/all').catch(() => ({ data:[] })),
         api.get('/settings/order-statuses/all').catch(() => ({ data:[] })),
+        api.get('/settings/rma-statuses/all').catch(() => ({ data:[] })),
       ]);
       if (sRes.data?.shopify_shop) setShopify(sRes.data);
       if (wRes.data?.value) setWarranty(wRes.data.value);
       setTicketTypes(tRes.data || []);
       setOrderStatuses(osRes.data || []);
+      setRmaStatuses(rmaRes.data || []);
     } catch(e) {}
   };
 
@@ -367,41 +373,65 @@ export default function Settings() {
       )}
 
       {tab==='rma'&&(
-        <div style={{maxWidth:580}}>
-          <h2 style={{fontSize:22,fontWeight:700,marginBottom:8}}>RMA Settings</h2>
-          <p style={{opacity:.5,fontSize:13,marginBottom:32}}>Configure RMA status labels and colors.</p>
+        <div style={{maxWidth:600}}>
+          <h2 style={{fontSize:16,marginBottom:4}}>RMA Statuses</h2>
+          <p style={{opacity:.6,fontSize:13,marginBottom:20}}>Create, edit and color-code RMA statuses. These appear as badges on the RMA list and can be used to filter RMAs.</p>
 
-          <div style={{marginBottom:32,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
-            <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:6}}>RMA Status Colors</label>
-            <p style={{fontSize:12,opacity:.5,marginBottom:16}}>Customize the color for each RMA status. These colors appear as badges on the RMA list.</p>
-            {(() => {
-              let colors = {};
-              try { colors = JSON.parse(general.rma_status_colors||'{}'); } catch(e) {}
-              const defaults = {new:'#6366f1',pending:'#f59e0b',rma_outgoing:'#3b82f6',rma_incoming:'#8b5cf6',processing:'#f97316',completed:'#10b981',rejected:'#ef4444'};
-              const labels = {new:'New',pending:'Pending',rma_outgoing:'RMA Outgoing',rma_incoming:'RMA Incoming',processing:'Processing',completed:'Completed',rejected:'Rejected'};
-              return Object.entries(labels).map(([key, label]) => {
-                const color = colors[key] || defaults[key];
-                return (
-                  <div key={key} style={{display:'flex',alignItems:'center',gap:14,marginBottom:12,padding:'10px 14px',background:'rgba(255,255,255,.03)',borderRadius:8,border:'1px solid rgba(255,255,255,.07)'}}>
-                    <input type="color" value={color} onChange={e=>{
-                      let c = {}; try { c = JSON.parse(general.rma_status_colors||'{}'); } catch(ex) {}
-                      c[key] = e.target.value;
-                      setGeneral(g=>({...g,rma_status_colors:JSON.stringify(c)}));
-                    }} style={{width:40,height:40,padding:2,borderRadius:8,border:'1px solid rgba(255,255,255,.2)',background:'transparent',cursor:'pointer',flexShrink:0}}/>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:14,fontWeight:600}}>{label}</div>
-                      <div style={{fontSize:11,opacity:.4,fontFamily:'monospace'}}>{color}</div>
-                    </div>
-                    <span style={{fontSize:12,padding:'3px 12px',borderRadius:10,background:`${color}22`,color:color,fontWeight:600}}>{label}</span>
-                  </div>
-                );
-              });
-            })()}
+          {/* Existing statuses */}
+          <div style={{marginBottom:24}}>
+            {rmaStatuses.map(s=>(
+              <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:'rgba(255,255,255,0.04)',borderRadius:8,marginBottom:6}}>
+                {editingRmaStatus===s.id ? (
+                  <>
+                    <input type="color" value={editRmaForm.color||s.color} onChange={e=>setEditRmaForm(f=>({...f,color:e.target.value}))} style={{width:36,height:36,padding:2,borderRadius:6,border:'1px solid rgba(255,255,255,.2)',background:'transparent',cursor:'pointer',flexShrink:0}}/>
+                    <input value={editRmaForm.name||''} onChange={e=>setEditRmaForm(f=>({...f,name:e.target.value}))} className="form-input" style={{flex:1,padding:'6px 10px',fontSize:13}}/>
+                    <input type="number" value={editRmaForm.sort_order||99} onChange={e=>setEditRmaForm(f=>({...f,sort_order:parseInt(e.target.value)||99}))} className="form-input" style={{width:60,padding:'6px 10px',fontSize:13}}/>
+                    <button onClick={async()=>{ try{ await api.put(`/settings/rma-statuses/${s.id}`,editRmaForm); setEditingRmaStatus(null); fetchAll(); toast.success('Updated'); }catch(e){toast.error('Failed');}}} className="btn btn-primary" style={{fontSize:12,padding:'4px 10px'}}>Save</button>
+                    <button onClick={()=>setEditingRmaStatus(null)} className="btn btn-ghost" style={{fontSize:12,padding:'4px 10px'}}>Cancel</button>
+                  </>
+                ) : (
+                  <>
+                    <div style={{width:14,height:14,borderRadius:3,background:s.color,flexShrink:0}}/>
+                    <span style={{flex:1,fontWeight:500}}>{s.name}</span>
+                    <span style={{fontSize:11,padding:'2px 8px',borderRadius:10,background:`${s.color}22`,color:s.color,fontWeight:600}}>{s.name}</span>
+                    <span style={{fontSize:11,opacity:.4}}>#{s.sort_order}</span>
+                    <button onClick={()=>{setEditingRmaStatus(s.id);setEditRmaForm({name:s.name,color:s.color,sort_order:s.sort_order});}} style={{background:'none',border:'none',cursor:'pointer',opacity:.5,padding:4,color:'inherit',fontSize:11}}>Edit</button>
+                    <button onClick={async()=>{ if(!window.confirm('Delete this status?'))return; try{ await api.delete(`/settings/rma-statuses/${s.id}`); fetchAll(); toast.success('Deleted'); }catch(e){toast.error('Failed');}}} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',opacity:.5,padding:4}}><Trash2 size={13}/></button>
+                  </>
+                )}
+              </div>
+            ))}
+            {rmaStatuses.length===0&&<p style={{opacity:.5,textAlign:'center',padding:20}}>No statuses yet.</p>}
           </div>
 
-          <button className="btn btn-primary" style={{padding:'12px 28px',fontSize:15}} disabled={savingGeneral} onClick={async()=>{setSavingGeneral(true);try{await api.put('/settings/general',general);toast.success('RMA settings saved');}catch(e){toast.error('Failed to save');}finally{setSavingGeneral(false);}}}>
-            {savingGeneral?'Saving...':'Save RMA Settings'}
-          </button>
+          {/* Add new */}
+          <div style={{background:'rgba(255,255,255,0.03)',borderRadius:8,padding:16}}>
+            <div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',opacity:.5,marginBottom:12}}>Add New Status</div>
+            <div style={{display:'flex',gap:10,alignItems:'flex-end'}}>
+              <div className="form-group" style={{flex:1,margin:0}}>
+                <label className="form-label">Name</label>
+                <input value={newRmaStatus.name} onChange={e=>setNewRmaStatus(n=>({...n,name:e.target.value}))} className="form-input" placeholder="e.g. On Hold"/>
+              </div>
+              <div className="form-group" style={{margin:0}}>
+                <label className="form-label">Color</label>
+                <input type="color" value={newRmaStatus.color} onChange={e=>setNewRmaStatus(n=>({...n,color:e.target.value}))} style={{width:44,height:36,padding:2,borderRadius:6,border:'1px solid rgba(255,255,255,0.2)',background:'transparent',cursor:'pointer'}}/>
+              </div>
+              <div className="form-group" style={{width:70,margin:0}}>
+                <label className="form-label">Order</label>
+                <input type="number" value={newRmaStatus.sort_order} onChange={e=>setNewRmaStatus(n=>({...n,sort_order:parseInt(e.target.value)||99}))} className="form-input" min="1"/>
+              </div>
+              <button className="btn btn-primary" onClick={async()=>{
+                if(!newRmaStatus.name.trim())return toast.error('Name required');
+                try{ const r=await api.post('/settings/rma-statuses',newRmaStatus); setRmaStatuses(s=>[...s,r.data]); setNewRmaStatus({name:'',color:'#6366f1',sort_order:99}); toast.success('Added'); }
+                catch(e){toast.error(e.response?.data?.error||'Failed');}
+              }}><Plus size={14}/> Add</button>
+            </div>
+            <div style={{display:'flex',gap:6,marginTop:10,flexWrap:'wrap'}}>
+              {PRESET_COLORS.map(c=>(
+                <button key={c} onClick={()=>setNewRmaStatus(n=>({...n,color:c}))} style={{width:22,height:22,borderRadius:4,background:c,border:newRmaStatus.color===c?'2px solid white':'2px solid transparent',cursor:'pointer',padding:0}}/>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
