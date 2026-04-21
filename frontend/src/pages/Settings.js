@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Save, RefreshCw, Shield, Tag, Link, Clock, ShoppingBag, Activity } from 'lucide-react';
+import { Plus, Trash2, Save, RefreshCw, Shield, Tag, Link, Clock, ShoppingBag, Activity, RotateCcw } from 'lucide-react';
 
 const SYNC_FIELDS = [
   { section:'Inventory', fields:[
@@ -29,7 +29,7 @@ const DIR_LABELS = {
 const PRESET_COLORS = ['#6366f1','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#f97316','#06b6d4','#84cc16','#ec4899'];
 
 export default function Settings() {
-  const [general, setGeneral] = useState({ cost_update_mode:'auto', cost_calculation_method:'1', cost_avg_days:'30', cost_avg_type:'cost', archive_sync:'both', shopify_push_mode:'manual' });
+  const [general, setGeneral] = useState({ cost_update_mode:'auto', cost_calculation_method:'1', cost_avg_days:'30', cost_avg_type:'cost', archive_sync:'both', shopify_push_mode:'manual', ticket_email:'', rma_status_colors:'{}' });
   const [savingGeneral, setSavingGeneral] = useState(false);
   const [tab, setTab] = useState('shopify');
   const [shopify, setShopify] = useState({ shopify_shop:'', shopify_access_token:'', shopify_client_id:'', shopify_client_secret:'' });
@@ -114,6 +114,7 @@ export default function Settings() {
     { id:'general', label:'General', icon:ShoppingBag },
     { id:'order-statuses', label:'Order Statuses', icon:ShoppingBag },
     { id:'status-log', label:'Status Log', icon:Activity },
+    { id:'rma', label:'RMA', icon:RotateCcw },
     { id:'sync', label:'Sync', icon:RefreshCw },
   ];
 
@@ -204,6 +205,13 @@ export default function Settings() {
               <option value="one-way">One-way — only archive in StockCentral</option>
               <option value="none">No sync — never archive in Shopify</option>
             </select>
+          </div>
+
+          {/* Ticket Email */}
+          <div style={{marginBottom:24,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
+            <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:6}}>Support Ticket Email</label>
+            <p style={{fontSize:12,opacity:.5,marginBottom:10}}>The email address customers use to submit support tickets. Set up an inbound email forwarder to: <code style={{background:'rgba(255,255,255,.08)',padding:'2px 6px',borderRadius:4}}>https://stockcentral-production.up.railway.app/api/tickets/inbound/shopify</code></p>
+            <input value={general.ticket_email||''} onChange={e=>setGeneral(g=>({...g,ticket_email:e.target.value}))} placeholder="support@yourdomain.com" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.06)',color:'inherit',fontSize:14,boxSizing:'border-box'}}/>
           </div>
 
           <button className="btn btn-primary" style={{padding:'12px 28px',fontSize:15}} disabled={savingGeneral} onClick={async()=>{setSavingGeneral(true);try{await api.put('/settings/general',general);toast.success('General settings saved');}catch(e){toast.error('Failed to save');}finally{setSavingGeneral(false);}}}>
@@ -355,6 +363,45 @@ export default function Settings() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {tab==='rma'&&(
+        <div style={{maxWidth:580}}>
+          <h2 style={{fontSize:22,fontWeight:700,marginBottom:8}}>RMA Settings</h2>
+          <p style={{opacity:.5,fontSize:13,marginBottom:32}}>Configure RMA status labels and colors.</p>
+
+          <div style={{marginBottom:32,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
+            <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:6}}>RMA Status Colors</label>
+            <p style={{fontSize:12,opacity:.5,marginBottom:16}}>Customize the color for each RMA status. These colors appear as badges on the RMA list.</p>
+            {(() => {
+              let colors = {};
+              try { colors = JSON.parse(general.rma_status_colors||'{}'); } catch(e) {}
+              const defaults = {new:'#6366f1',pending:'#f59e0b',rma_outgoing:'#3b82f6',rma_incoming:'#8b5cf6',processing:'#f97316',completed:'#10b981',rejected:'#ef4444'};
+              const labels = {new:'New',pending:'Pending',rma_outgoing:'RMA Outgoing',rma_incoming:'RMA Incoming',processing:'Processing',completed:'Completed',rejected:'Rejected'};
+              return Object.entries(labels).map(([key, label]) => {
+                const color = colors[key] || defaults[key];
+                return (
+                  <div key={key} style={{display:'flex',alignItems:'center',gap:14,marginBottom:12,padding:'10px 14px',background:'rgba(255,255,255,.03)',borderRadius:8,border:'1px solid rgba(255,255,255,.07)'}}>
+                    <input type="color" value={color} onChange={e=>{
+                      let c = {}; try { c = JSON.parse(general.rma_status_colors||'{}'); } catch(ex) {}
+                      c[key] = e.target.value;
+                      setGeneral(g=>({...g,rma_status_colors:JSON.stringify(c)}));
+                    }} style={{width:40,height:40,padding:2,borderRadius:8,border:'1px solid rgba(255,255,255,.2)',background:'transparent',cursor:'pointer',flexShrink:0}}/>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:14,fontWeight:600}}>{label}</div>
+                      <div style={{fontSize:11,opacity:.4,fontFamily:'monospace'}}>{color}</div>
+                    </div>
+                    <span style={{fontSize:12,padding:'3px 12px',borderRadius:10,background:`${color}22`,color:color,fontWeight:600}}>{label}</span>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+
+          <button className="btn btn-primary" style={{padding:'12px 28px',fontSize:15}} disabled={savingGeneral} onClick={async()=>{setSavingGeneral(true);try{await api.put('/settings/general',general);toast.success('RMA settings saved');}catch(e){toast.error('Failed to save');}finally{setSavingGeneral(false);}}}>
+            {savingGeneral?'Saving...':'Save RMA Settings'}
+          </button>
         </div>
       )}
 
