@@ -31,6 +31,8 @@ const PRESET_COLORS = ['#6366f1','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef444
 export default function Settings() {
   const [general, setGeneral] = useState({ cost_update_mode:'auto', cost_calculation_method:'1', cost_avg_days:'30', cost_avg_type:'cost', archive_sync:'both', shopify_push_mode:'manual', ticket_email:'', rma_status_colors:'{}' });
   const [savingGeneral, setSavingGeneral] = useState(false);
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
   const [tab, setTab] = useState('shopify');
   const [shopify, setShopify] = useState({ shopify_shop:'', shopify_access_token:'', shopify_client_id:'', shopify_client_secret:'' });
   const [warranty, setWarranty] = useState({ period_days:365, period_label:'1 Year' });
@@ -111,6 +113,22 @@ export default function Settings() {
     if (!window.confirm('Delete this status?')) return;
     try { await api.delete(`/settings/order-statuses/${id}`); setOrderStatuses(s => s.filter(x => x.id!==id)); }
     catch(e) { toast.error('Failed'); }
+  };
+
+  const reorderList = async (list, setList, dragId, overId, endpoint) => {
+    const items = [...list];
+    const fromIdx = items.findIndex(x => x.id === dragId);
+    const toIdx = items.findIndex(x => x.id === overId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const [moved] = items.splice(fromIdx, 1);
+    items.splice(toIdx, 0, moved);
+    // Update sort_order
+    const updated = items.map((item, idx) => ({...item, sort_order: idx + 1}));
+    setList(updated);
+    setDraggingId(null); setDragOverId(null);
+    try {
+      await Promise.all(updated.map(item => api.put(`${endpoint}/${item.id}`, item)));
+    } catch(e) { toast.error('Failed to save order'); }
   };
 
   const TABS = [
@@ -304,12 +322,20 @@ export default function Settings() {
           <p style={{opacity:.6,fontSize:13,marginBottom:20}}>Customize order workflow statuses. These appear as the clickable status button on each order. The <strong>Paid</strong> status is the default when orders arrive from Shopify.</p>
           <div style={{marginBottom:24}}>
             {orderStatuses.map((s,idx)=>(
-              <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:'rgba(255,255,255,0.04)',borderRadius:8,marginBottom:6}}>
+              <div key={s.id}
+                draggable
+                onDragStart={()=>setDraggingId(s.id)}
+                onDragOver={e=>{e.preventDefault();setDragOverId(s.id);}}
+                onDrop={()=>reorderList(orderStatuses,setOrderStatuses,draggingId,s.id,'/settings/order-statuses')}
+                onDragEnd={()=>{setDraggingId(null);setDragOverId(null);}}
+                style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:dragOverId===s.id?'rgba(99,102,241,.1)':'rgba(255,255,255,0.04)',borderRadius:8,marginBottom:6,cursor:'grab',border:`1px solid ${dragOverId===s.id?'rgba(99,102,241,.4)':'transparent'}`,transition:'all .15s'}}>
+                <div style={{opacity:.3,cursor:'grab',padding:'0 2px',display:'flex',flexDirection:'column',gap:2}}>
+                  {[0,1,2].map(i=><div key={i} style={{width:14,height:2,background:'currentColor',borderRadius:1}}/>)}
+                </div>
                 <div style={{width:14,height:14,borderRadius:3,background:s.color,flexShrink:0}}/>
                 <span style={{flex:1,fontWeight:500}}>{s.name}</span>
                 {s.is_default&&<span style={{fontSize:10,padding:'2px 6px',borderRadius:8,background:'rgba(16,185,129,0.2)',color:'#10b981',fontWeight:600}}>DEFAULT</span>}
                 <span style={{fontSize:11,opacity:.4,fontFamily:'monospace'}}>{s.color}</span>
-                <span style={{fontSize:11,opacity:.4}}>#{s.sort_order}</span>
                 {!s.is_default&&<button onClick={()=>deleteOrderStatus(s.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',opacity:.5,padding:4}}><Trash2 size={13}/></button>}
               </div>
             ))}
@@ -325,10 +351,6 @@ export default function Settings() {
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label">Color</label>
                 <input type="color" value={newStatus.color} onChange={e=>setNewStatus(n=>({...n,color:e.target.value}))} style={{width:44,height:36,padding:2,borderRadius:6,border:'1px solid rgba(255,255,255,0.2)',background:'transparent',cursor:'pointer'}}/>
-              </div>
-              <div className="form-group" style={{width:70,margin:0}}>
-                <label className="form-label">Order</label>
-                <input type="number" value={newStatus.sort_order} onChange={e=>setNewStatus(n=>({...n,sort_order:parseInt(e.target.value)||99}))} className="form-input" min="1"/>
               </div>
               <button className="btn btn-primary" onClick={addOrderStatus}><Plus size={14}/> Add</button>
             </div>
@@ -380,21 +402,28 @@ export default function Settings() {
           {/* Existing statuses */}
           <div style={{marginBottom:24}}>
             {rmaStatuses.map(s=>(
-              <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:'rgba(255,255,255,0.04)',borderRadius:8,marginBottom:6}}>
+              <div key={s.id}
+                draggable={editingRmaStatus!==s.id}
+                onDragStart={()=>setDraggingId(s.id)}
+                onDragOver={e=>{e.preventDefault();setDragOverId(s.id);}}
+                onDrop={()=>reorderList(rmaStatuses,setRmaStatuses,draggingId,s.id,'/settings/rma-statuses')}
+                onDragEnd={()=>{setDraggingId(null);setDragOverId(null);}}
+                style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:dragOverId===s.id?'rgba(99,102,241,.1)':'rgba(255,255,255,0.04)',borderRadius:8,marginBottom:6,border:`1px solid ${dragOverId===s.id?'rgba(99,102,241,.4)':'transparent'}`,transition:'all .15s'}}>
                 {editingRmaStatus===s.id ? (
                   <>
                     <input type="color" value={editRmaForm.color||s.color} onChange={e=>setEditRmaForm(f=>({...f,color:e.target.value}))} style={{width:36,height:36,padding:2,borderRadius:6,border:'1px solid rgba(255,255,255,.2)',background:'transparent',cursor:'pointer',flexShrink:0}}/>
                     <input value={editRmaForm.name||''} onChange={e=>setEditRmaForm(f=>({...f,name:e.target.value}))} className="form-input" style={{flex:1,padding:'6px 10px',fontSize:13}}/>
-                    <input type="number" value={editRmaForm.sort_order||99} onChange={e=>setEditRmaForm(f=>({...f,sort_order:parseInt(e.target.value)||99}))} className="form-input" style={{width:60,padding:'6px 10px',fontSize:13}}/>
                     <button onClick={async()=>{ try{ await api.put(`/settings/rma-statuses/${s.id}`,editRmaForm); setEditingRmaStatus(null); fetchAll(); toast.success('Updated'); }catch(e){toast.error('Failed');}}} className="btn btn-primary" style={{fontSize:12,padding:'4px 10px'}}>Save</button>
                     <button onClick={()=>setEditingRmaStatus(null)} className="btn btn-ghost" style={{fontSize:12,padding:'4px 10px'}}>Cancel</button>
                   </>
                 ) : (
                   <>
+                    <div style={{opacity:.3,cursor:'grab',padding:'0 2px',display:'flex',flexDirection:'column',gap:2}}>
+                      {[0,1,2].map(i=><div key={i} style={{width:14,height:2,background:'currentColor',borderRadius:1}}/>)}
+                    </div>
                     <div style={{width:14,height:14,borderRadius:3,background:s.color,flexShrink:0}}/>
                     <span style={{flex:1,fontWeight:500}}>{s.name}</span>
                     <span style={{fontSize:11,padding:'2px 8px',borderRadius:10,background:`${s.color}22`,color:s.color,fontWeight:600}}>{s.name}</span>
-                    <span style={{fontSize:11,opacity:.4}}>#{s.sort_order}</span>
                     <button onClick={()=>{setEditingRmaStatus(s.id);setEditRmaForm({name:s.name,color:s.color,sort_order:s.sort_order});}} style={{background:'none',border:'none',cursor:'pointer',opacity:.5,padding:4,color:'inherit',fontSize:11}}>Edit</button>
                     <button onClick={async()=>{ if(!window.confirm('Delete this status?'))return; try{ await api.delete(`/settings/rma-statuses/${s.id}`); fetchAll(); toast.success('Deleted'); }catch(e){toast.error('Failed');}}} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',opacity:.5,padding:4}}><Trash2 size={13}/></button>
                   </>
@@ -415,10 +444,6 @@ export default function Settings() {
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label">Color</label>
                 <input type="color" value={newRmaStatus.color} onChange={e=>setNewRmaStatus(n=>({...n,color:e.target.value}))} style={{width:44,height:36,padding:2,borderRadius:6,border:'1px solid rgba(255,255,255,0.2)',background:'transparent',cursor:'pointer'}}/>
-              </div>
-              <div className="form-group" style={{width:70,margin:0}}>
-                <label className="form-label">Order</label>
-                <input type="number" value={newRmaStatus.sort_order} onChange={e=>setNewRmaStatus(n=>({...n,sort_order:parseInt(e.target.value)||99}))} className="form-input" min="1"/>
               </div>
               <button className="btn btn-primary" onClick={async()=>{
                 if(!newRmaStatus.name.trim())return toast.error('Name required');
