@@ -290,4 +290,60 @@ router.get('/templates', auth, async (req, res) => {
   }
 });
 
+// Send quote to vendor
+router.post('/send-quote', async (req, res) => {
+  try {
+    const { quote_id } = req.body;
+    const quoteRes = await pool.query(`SELECT q.*, v.name as vendor_name, v.email as vendor_email, v.sales_rep_email FROM quotes q LEFT JOIN vendors v ON q.vendor_id = v.id WHERE q.id = $1`, [quote_id]);
+    if (!quoteRes.rows.length) return res.status(404).json({ error: 'Quote not found' });
+    const quote = quoteRes.rows[0];
+    const itemsRes = await pool.query('SELECT * FROM quote_items WHERE quote_id = $1', [quote_id]);
+    const items = itemsRes.rows;
+    const tmplRes = await pool.query("SELECT value FROM settings WHERE key='email_template'");
+    const tmpl = tmplRes.rows[0]?.value || {};
+    const vendorEmail = quote.sales_rep_email || quote.vendor_email;
+    if (!vendorEmail) return res.status(400).json({ error: 'Vendor has no email address' });
+    const itemsTable = `<table style="width:100%;border-collapse:collapse;margin:16px 0"><thead><tr style="background:#f3f4f6"><th style="padding:8px;text-align:left;border:1px solid #e5e7eb">SKU</th><th style="padding:8px;text-align:left;border:1px solid #e5e7eb">Product</th><th style="padding:8px;text-align:left;border:1px solid #e5e7eb">Vendor SKU</th><th style="padding:8px;text-align:center;border:1px solid #e5e7eb">Qty</th><th style="padding:8px;text-align:right;border:1px solid #e5e7eb">Unit Cost</th></tr></thead><tbody>${items.map(i=>`<tr><td style="padding:8px;border:1px solid #e5e7eb">${i.sku||''}</td><td style="padding:8px;border:1px solid #e5e7eb">${i.name||''}</td><td style="padding:8px;border:1px solid #e5e7eb">${i.vendor_sku||''}</td><td style="padding:8px;text-align:center;border:1px solid #e5e7eb">${i.quantity}</td><td style="padding:8px;text-align:right;border:1px solid #e5e7eb">${i.unit_cost?'$'+parseFloat(i.unit_cost).toFixed(2):'TBD'}</td></tr>`).join('')}</tbody></table>`;
+    const logoHtml = tmpl.logo_url ? `<img src="${tmpl.logo_url}" style="max-height:60px;margin-bottom:16px" alt="Logo"/>` : '';
+    const companyHtml = `<div style="margin-bottom:16px;font-size:13px;color:#6b7280">${tmpl.company_name?`<strong>${tmpl.company_name}</strong><br/>`:''}${tmpl.company_email?`${tmpl.company_email}<br/>`:''}${tmpl.company_phone?`${tmpl.company_phone}<br/>`:''}${tmpl.company_address||''}</div>`;
+    const html = `<div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;padding:24px">${logoHtml}${companyHtml}<h2 style="color:#1f2937">Quote Request: ${quote.quote_number}</h2><p style="color:#6b7280">Date: ${new Date().toLocaleDateString()}</p>${tmpl.quote_intro?`<p>${tmpl.quote_intro}</p>`:''}${itemsTable}${tmpl.quote_footer?`<p>${tmpl.quote_footer}</p>`:''}<hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb"/><p style="font-size:12px;color:#9ca3af">Reply to this email to respond. Reference: ${quote.quote_number}</p></div>`;
+    const sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    await sgMail.send({ to: vendorEmail, from: { email: process.env.SENDGRID_FROM_EMAIL||'noreply@stockcentralerp.com', name: tmpl.company_name||'StockCentral' }, subject: `Quote Request ${quote.quote_number}`, html, replyTo: tmpl.company_email||process.env.SENDGRID_FROM_EMAIL });
+    await pool.query(`INSERT INTO email_log (quote_id,direction,subject,body,from_email,to_email) VALUES ($1,'outbound',$2,$3,$4,$5)`, [quote_id, `Quote Request ${quote.quote_number}`, tmpl.quote_intro||'', tmpl.company_email||'', vendorEmail]).catch(()=>{});
+    await pool.query(`UPDATE quotes SET status='sent', updated_at=NOW() WHERE id=$1`, [quote_id]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/send-quote-reply', async (req, res) => {
+  try {
+    const { quote_id, body } = req.body;
+    const quoteRes = await pool.query(`SELECT q.*, v.email as vendor_email, v.sales_rep_email FROM quotes q LEFT JOIN vendors v ON q.vendor_id = v.id WHERE q.id = $1`, [quote_id]);
+    if (!quoteRes.rows.length) return res.status(404).json({ error: 'Quote not found' });
+    const quote = quoteRes.rows[0];
+    const vendorEmail = quote.sales_rep_email || quote.vendor_email;
+    if (!vendorEmail) return res.status(400).json({ error: 'Vendor has no email' });
+    const tmplRes = await pool.query("SELECT value FROM settings WHERE key='email_template'");
+    const tmpl = tmplRes.rows[0]?.value || {};
+    const sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    await sgMail.send({ to: vendorEmail, from: { email: process.env.SENDGRID_FROM_EMAIL||'noreply@stockcentralerp.com', name: tmpl.company_name||'StockCentral' }, subject: `Re: Quote ${quote.quote_number}`, html: `<div style="font-family:Arial,sans-serif;max-width:700px;padding:24px"><p>${body.replace(/\n/g,'<br/>')}</p><hr/><p style="font-size:12px;color:#9ca3af">Reference: ${quote.quote_number}</p></div>` });
+    await pool.query(`INSERT INTO email_log (quote_id,direction,subject,body,from_email,to_email) VALUES ($1,'outbound',$2,$3,$4,$5)`, [quote_id, `Re: Quote ${quote.quote_number}`, body, tmpl.company_email||'', vendorEmail]).catch(()=>{});
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/log', async (req, res) => {
+  try {
+    const { quote_id, po_id } = req.query;
+    let query = 'SELECT * FROM email_log WHERE 1=1';
+    const params = [];
+    if (quote_id) { params.push(quote_id); query += ` AND quote_id=$${params.length}`; }
+    if (po_id) { params.push(po_id); query += ` AND po_id=$${params.length}`; }
+    query += ' ORDER BY created_at ASC';
+    const r = await pool.query(query, params);
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 module.exports = router;
