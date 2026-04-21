@@ -15,59 +15,60 @@ import BOM from './pages/BOM';
 import Manufacturing from './pages/Manufacturing';
 import Orders from './pages/Orders';
 import Settings from './pages/Settings';
+import Tickets from './pages/tickets';
 
 export const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
 function AuthProvider({ children }) {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-        const token = localStorage.getItem('stockcentral_token');
-        if (token) {
-                api.get('/auth/me').then(res => {
-                          setUser(res.data);
-                          setLoading(false);
-                }).catch(() => {
-                          localStorage.removeItem('stockcentral_token');
-                          setLoading(false);
-                });
-        } else setLoading(false);
+    const token = localStorage.getItem('stockcentral_token');
+    if (token) {
+      api.get('/auth/me').then(res => {
+        setUser(res.data);
+        setLoading(false);
+      }).catch(() => {
+        localStorage.removeItem('stockcentral_token');
+        setLoading(false);
+      });
+    } else setLoading(false);
   }, []);
 
   const login = async (email, password) => {
-        const res = await api.post('/auth/login', { email, password });
-        localStorage.setItem('stockcentral_token', res.data.token);
-        setUser(res.data.user);
+    const res = await api.post('/auth/login', { email, password });
+    localStorage.setItem('stockcentral_token', res.data.token);
+    setUser(res.data.user);
   };
 
   const logout = () => {
-        localStorage.removeItem('stockcentral_token');
-        setUser(null);
+    localStorage.removeItem('stockcentral_token');
+    setUser(null);
   };
 
   if (loading) return (
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0a0a0f', color:'#fff', fontFamily:'monospace', fontSize:'14px' }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0a0a0f', color:'#fff', fontFamily:'monospace', fontSize:'14px' }}>
       Loading StockCentral...
-        </div>
+    </div>
   );
 
   return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
 }
 
 function PrivateRoute({ children }) {
-    const { user } = useAuth();
-    return user ? children : <Navigate to="/login" />;
+  const { user } = useAuth();
+  return user ? children : <Navigate to="/login" />;
 }
 
 export default function App() {
-    return (
-          <AuthProvider>
-            <BrowserRouter>
-              <Toaster position="top-right" toastOptions={{ style: { background:'#1a1a2e', color:'#fff', border:'1px solid #2a2a4a' } }}/>
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Toaster position="top-right" toastOptions={{ style: { background:'#1a1a2e', color:'#fff', border:'1px solid #2a2a4a' } }}/>
         <Routes>
-            <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="inventory" element={<Inventory />} />
@@ -80,9 +81,10 @@ export default function App() {
             <Route path="manufacturing" element={<Manufacturing />} />
             <Route path="orders" element={<Orders />} />
             <Route path="settings" element={<Settings />} />
-  </Route>
-  </Routes>
-  </BrowserRouter>
-  </AuthProvider>
+            <Route path="tickets" element={<Tickets />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
