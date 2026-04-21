@@ -115,12 +115,11 @@ export default function Settings() {
 
   const TABS = [
     { id:'shopify', label:'Shopify', icon:Link },
-    { id:'warranty', label:'Warranty', icon:Shield },
-    { id:'tickets', label:'Ticket Types', icon:Tag },
     { id:'general', label:'General', icon:ShoppingBag },
     { id:'order-statuses', label:'Order Statuses', icon:ShoppingBag },
-    { id:'status-log', label:'Status Log', icon:Activity },
     { id:'rma', label:'RMA', icon:RotateCcw },
+    { id:'tickets', label:'Ticket Types', icon:Tag },
+    { id:'status-log', label:'Status Log', icon:Activity },
     { id:'sync', label:'Sync', icon:RefreshCw },
   ];
 
