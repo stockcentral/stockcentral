@@ -119,6 +119,7 @@ export default function Settings() {
     { id:'order-statuses', label:'Order Statuses', icon:ShoppingBag },
     { id:'rma', label:'RMA', icon:RotateCcw },
     { id:'tickets', label:'Ticket Types', icon:Tag },
+    { id:'warranty', label:'Warranty', icon:Shield },
     { id:'status-log', label:'Status Log', icon:Activity },
     { id:'sync', label:'Sync', icon:RefreshCw },
   ];
