@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
-import { LayoutDashboard, Package, Users, FileText, ShoppingCart, RotateCcw, Layers, Factory, ShoppingBag, Settings, LogOut, ChevronRight, Menu, MessageSquare, Headphones } from 'lucide-react';
+import api from '../utils/api';
+import { LayoutDashboard, Package, Users, FileText, ShoppingCart, RotateCcw, Layers, Factory, ShoppingBag, Settings, LogOut, ChevronRight, Menu, LifeBuoy } from 'lucide-react';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
@@ -14,7 +15,7 @@ const navItems = [
   { label: 'Bill of Materials', icon: Layers, path: '/bom' },
   { label: 'Manufacturing', icon: Factory, path: '/manufacturing' },
   { divider: true, label: 'SUPPORT' },
-  { label: 'Tickets', icon: Headphones, path: '/tickets' },
+  { label: 'Tickets', icon: LifeBuoy, path: '/tickets' },
   { label: 'RMA', icon: RotateCcw, path: '/rma' },
   { divider: true, label: 'DATA' },
   { label: 'Vendors', icon: Users, path: '/vendors' },
@@ -25,6 +26,23 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+  const [ticketUnread, setTicketUnread] = useState(0);
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const r = await api.get('/tickets');
+        const unread = r.data.filter(t =>
+          t.status === 'open' && !t.assigned_to_user_id &&
+          (t.last_sender_type === 'customer' || !t.last_sender_type)
+        ).length;
+        setTicketUnread(unread);
+      } catch(e) {}
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
@@ -67,6 +85,11 @@ export default function Layout() {
                 })}>
                 <Icon size={16} style={{ flexShrink:0 }}/>
                 {!collapsed && item.label}
+                {!collapsed && item.path === '/tickets' && ticketUnread > 0 && (
+                  <span style={{marginLeft:'auto',background:'#ef4444',color:'white',borderRadius:10,padding:'1px 6px',fontSize:10,fontWeight:700}}>
+                    {ticketUnread}
+                  </span>
+                )}
               </NavLink>
             );
           })}
