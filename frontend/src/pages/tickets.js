@@ -152,23 +152,55 @@ export default function Tickets() {
     } catch(e) { toast.error('Failed'); }
   };
 
+  const [showRMAModal, setShowRMAModal] = useState(false);
+  const [rmaForm, setRmaForm] = useState({});
+  const [rmaInventory, setRmaInventory] = useState([]);
+  const [rmaOrders, setRmaOrders] = useState([]);
+  const [savingRMA, setSavingRMA] = useState(false);
+
   const createRMA = async () => {
     if (!sel) return;
+    // Pre-fill RMA form from ticket data
     try {
-      const r = await api.post('/rma', {
-        customer_name: sel.customer_name,
-        reason: sel.subject,
-        status: 'pending',
-        notes: `Created from ticket ${sel.ticket_number}`
-      });
+      const [inv, ords] = await Promise.all([
+        api.get('/inventory'),
+        api.get('/orders').catch(() => ({data:[]}))
+      ]);
+      setRmaInventory(inv.data);
+      setRmaOrders(ords.data);
+    } catch(e) {}
+    setRmaForm({
+      rma_type: 'client',
+      customer_name: sel.customer_name || '',
+      customer_email: sel.customer_email || '',
+      shopify_order_number: sel.shopify_order_number || '',
+      reason: sel.subject || '',
+      notes: `Created from ticket ${sel.ticket_number}`,
+      status: 'new',
+      quantity: '1',
+      replacement_type: 'refund',
+      inventory_item_id: '',
+      shopify_order_id: '',
+      po_id: '',
+    });
+    setShowRMAModal(true);
+  };
+
+  const submitRMA = async () => {
+    setSavingRMA(true);
+    try {
+      const r = await api.post('/rma', rmaForm);
       await updateTicket('rma_id', r.data.id);
       await api.post(`/tickets/${sel.id}/messages`, {
-        body: `RMA created: ${r.data.rma_number || r.data.id}`,
-        is_internal: true
+        body: `RMA ${r.data.rma_number} created and linked to this ticket`,
+        is_internal: true,
+        sender_type: 'staff'
       });
       fetchMessages(sel.id);
-      toast.success('RMA created and linked to ticket');
+      setShowRMAModal(false);
+      toast.success(`RMA ${r.data.rma_number} created and linked`);
     } catch(e) { toast.error(e.response?.data?.error || 'Failed to create RMA'); }
+    finally { setSavingRMA(false); }
   };
 
   const filtered = tickets.filter(t => {
