@@ -59,6 +59,8 @@ export default function Tickets() {
   const [newQR, setNewQR] = useState({ title:'', body:'' });
   const [newTicket, setNewTicket] = useState({ subject:'', type:'general', priority:'normal', customer_name:'', customer_email:'', shopify_order_number:'', body:'' });
   const [saving, setSaving] = useState(false);
+  const [orderSuggestions, setOrderSuggestions] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
   const msgEndRef = useRef();
 
   useEffect(() => { fetchTickets(); fetchStaff(); fetchQuickReplies(); }, []);
@@ -107,6 +109,20 @@ export default function Tickets() {
     } catch(e) { toast.error('Failed to update'); }
   };
 
+  const lookupOrders = async (email, name) => {
+    if (!email && !name) { setOrderSuggestions([]); return; }
+    setLoadingOrders(true);
+    try {
+      const r = await api.get(`/orders?sort=created_at&dir=desc`);
+      const search = (email || name || '').toLowerCase();
+      const matches = r.data.filter(o =>
+        (email && o.customer_email?.toLowerCase() === email.toLowerCase()) ||
+        (name && !email && o.customer_name?.toLowerCase().includes(name.toLowerCase()))
+      );
+      setOrderSuggestions(matches.slice(0, 10));
+    } catch(e) {} finally { setLoadingOrders(false); }
+  };
+
   const createTicket = async () => {
     if (!newTicket.subject.trim()) return toast.error('Subject is required');
     setSaving(true);
@@ -114,7 +130,7 @@ export default function Tickets() {
       const r = await api.post('/tickets', newTicket);
       toast.success(`Ticket ${r.data.ticket_number} created`);
       setShowNewTicket(false);
-      setNewTicket({ subject:'', type:'general', priority:'normal', customer_name:'', customer_email:'', shopify_order_number:'', body:'' });
+      setNewTicket({ subject:'', type:'general', priority:'normal', customer_name:'', customer_email:'', shopify_order_number:'', body:'' }); setOrderSuggestions([]);
       fetchTickets();
       openTicket(r.data);
     } catch(e) { toast.error(e.response?.data?.error || 'Failed to create ticket'); } finally { setSaving(false); }
@@ -446,10 +462,52 @@ export default function Tickets() {
                 </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-                <div className="form-group"><label className="form-label">Customer Name</label><input value={newTicket.customer_name} onChange={e=>setNewTicket(n=>({...n,customer_name:e.target.value}))} className="form-input" placeholder="John Smith"/></div>
-                <div className="form-group"><label className="form-label">Customer Email</label><input value={newTicket.customer_email} onChange={e=>setNewTicket(n=>({...n,customer_email:e.target.value}))} className="form-input" placeholder="john@example.com" type="email"/></div>
+                <div className="form-group"><label className="form-label">Customer Name</label><input value={newTicket.customer_name} onChange={e=>setNewTicket(n=>({...n,customer_name:e.target.value}))} onBlur={e=>lookupOrders(newTicket.customer_email, e.target.value)} className="form-input" placeholder="John Smith"/></div>
+                <div className="form-group"><label className="form-label">Customer Email</label><input value={newTicket.customer_email} onChange={e=>{setNewTicket(n=>({...n,customer_email:e.target.value}));}} onBlur={e=>lookupOrders(e.target.value, newTicket.customer_name)} className="form-input" placeholder="john@example.com" type="email"/></div>
               </div>
-              <div className="form-group"><label className="form-label">Order # (optional)</label><input value={newTicket.shopify_order_number} onChange={e=>setNewTicket(n=>({...n,shopify_order_number:e.target.value}))} className="form-input" placeholder="1001"/></div>
+              {/* Order selector */}
+              <div className="form-group">
+                <label className="form-label">
+                  Linked Order {loadingOrders && <span style={{fontSize:11,opacity:.5}}>Looking up orders...</span>}
+                </label>
+                {orderSuggestions.length > 0 ? (
+                  <div>
+                    <select
+                      value={newTicket.shopify_order_number}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === '__all__') {
+                          const nums = orderSuggestions.map(o => o.order_number).join(', ');
+                          setNewTicket(n => ({...n, shopify_order_number: nums}));
+                        } else {
+                          setNewTicket(n => ({...n, shopify_order_number: val}));
+                        }
+                      }}
+                      className="form-input"
+                    >
+                      <option value="">— Select an order —</option>
+                      {orderSuggestions.map(o => (
+                        <option key={o.id} value={o.order_number}>
+                          #{o.order_number} · {new Date(o.created_at).toLocaleDateString()} · ${parseFloat(o.total_price||0).toFixed(2)}
+                        </option>
+                      ))}
+                      {orderSuggestions.length > 1 && (
+                        <option value="__all__">— Add all {orderSuggestions.length} orders —</option>
+                      )}
+                    </select>
+                    <div style={{fontSize:11,opacity:.4,marginTop:4}}>
+                      Found {orderSuggestions.length} order{orderSuggestions.length !== 1 ? 's' : ''} for this customer
+                    </div>
+                  </div>
+                ) : (
+                  <input
+                    value={newTicket.shopify_order_number}
+                    onChange={e=>setNewTicket(n=>({...n,shopify_order_number:e.target.value}))}
+                    className="form-input"
+                    placeholder="Enter order number manually"
+                  />
+                )}
+              </div>
               <div className="form-group"><label className="form-label">Initial Message (optional)</label><textarea value={newTicket.body} onChange={e=>setNewTicket(n=>({...n,body:e.target.value}))} className="form-input" rows={3} placeholder="Describe the issue..."/></div>
             </div>
             <div className="modal-footer">
