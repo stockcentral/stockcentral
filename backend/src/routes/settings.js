@@ -105,11 +105,11 @@ router.post('/', async (req, res) => {
 
 router.get('/general', async (req, res) => {
   try {
-    const keys = ['cost_update_mode','cost_calculation_method','cost_avg_days','cost_avg_type','archive_sync','shopify_push_mode'];
+    const keys = ['cost_update_mode','cost_calculation_method','cost_avg_days','cost_avg_type','archive_sync','shopify_push_mode', 'ticket_email', 'rma_status_colors'];
     const result = await pool.query(`SELECT key, value FROM settings WHERE key = ANY($1)`, [keys]);
     const map = {};
     result.rows.forEach(r => { map[r.key] = r.value; });
-    res.json({ cost_update_mode: map.cost_update_mode||'auto', cost_calculation_method: map.cost_calculation_method||'1', cost_avg_days: map.cost_avg_days||'30', cost_avg_type: map.cost_avg_type||'cost', archive_sync: map.archive_sync||'both', shopify_push_mode: map.shopify_push_mode||'manual' });
+    res.json({ cost_update_mode: map.cost_update_mode||'auto', cost_calculation_method: map.cost_calculation_method||'1', cost_avg_days: map.cost_avg_days||'30', cost_avg_type: map.cost_avg_type||'cost', archive_sync: map.archive_sync||'both', shopify_push_mode: map.shopify_push_mode||'manual', ticket_email: map.ticket_email||'', rma_status_colors: map.rma_status_colors||'{}' });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
