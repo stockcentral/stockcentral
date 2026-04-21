@@ -307,25 +307,30 @@ export default function Tickets() {
                       borderLeft:isSelected?'3px solid #6366f1':isNew(ticket)?'3px solid #a5b4fc':stale?'3px solid #ef4444':'3px solid transparent',
                       transition:'background .15s',
                       boxShadow:isNew(ticket)&&!isSelected?'inset 0 0 0 1px rgba(165,180,252,.15)':'none'}}>
-                    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:4}}>
+                    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:6}}>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-                          <span style={{fontSize:11,fontFamily:'monospace',color:'#6366f1',fontWeight:600}}>{ticket.ticket_number}</span>
+                        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:4}}>
+                          <span style={{fontSize:12,fontFamily:'monospace',color:'#6366f1',fontWeight:700}}>{ticket.ticket_number}</span>
                           <StatusBadge status={ticket.status}/>
-                          {stale && <span style={{fontSize:10,color:'#ef4444',fontWeight:600}}>⚠ Stale</span>}
+                          <PriorityBadge priority={ticket.priority}/>
+                          {stale && <span style={{fontSize:11,color:'#ef4444',fontWeight:600}}>⚠ Stale</span>}
+                          {isNew(ticket)&&<span style={{fontSize:10,background:'#6366f1',color:'white',borderRadius:4,padding:'1px 6px',fontWeight:700}}>NEW</span>}
                         </div>
-                        <div style={{fontWeight:700,fontSize:14,marginTop:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ticket.subject}{isNew(ticket)&&<span style={{marginLeft:6,fontSize:10,background:'#6366f1',color:'white',borderRadius:4,padding:'1px 5px',verticalAlign:'middle'}}>NEW</span>}</div>
+                        <div style={{fontWeight:700,fontSize:15,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ticket.subject}</div>
                       </div>
-                      <PriorityBadge priority={ticket.priority}/>
+                      <div style={{fontSize:11,opacity:.4,whiteSpace:'nowrap',flexShrink:0}}>{fmtTime(ticket.updated_at)}</div>
                     </div>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:11,opacity:.5}}>
-                      <span>{ticket.customer_name||'No customer'}{ticket.shopify_order_number&&` · #${ticket.shopify_order_number}`}</span>
-                      <span style={{display:'flex',alignItems:'center',gap:4}}>
-                        {ticket.message_count > 0 && <><MessageSquare size={10}/>{ticket.message_count}</>}
-                        <span style={{marginLeft:4}}>{ticket.assigned_to_name||'Unassigned'}</span>
-                      </span>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:12,opacity:.6}}>
+                      <div style={{display:'flex',alignItems:'center',gap:16}}>
+                        <span style={{fontWeight:500}}>{ticket.customer_name||'No customer'}</span>
+                        {ticket.customer_email&&<span style={{opacity:.7}}>{ticket.customer_email}</span>}
+                        {ticket.shopify_order_number&&<span>Order #{ticket.shopify_order_number}</span>}
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:12,flexShrink:0}}>
+                        {ticket.message_count > 0 && <span style={{display:'flex',alignItems:'center',gap:3}}><MessageSquare size={11}/>{ticket.message_count}</span>}
+                        <span style={{padding:'2px 8px',borderRadius:6,background:'rgba(255,255,255,.06)',fontSize:11}}>{ticket.assigned_to_name||'Unassigned'}</span>
+                      </div>
                     </div>
-                    <div style={{fontSize:11,opacity:.35,marginTop:2}}>{fmtTime(ticket.updated_at)}</div>
                   </div>
                 );
               })
