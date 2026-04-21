@@ -124,4 +124,17 @@ const updates = { cost_update_mode, cost_calculation_method, cost_avg_days, cost
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+// RMA Statuses
+router.get('/rma-statuses/all', async (req, res) => {
+  try { const r = await pool.query('SELECT * FROM rma_statuses ORDER BY sort_order ASC, name ASC'); res.json(r.data || r.rows); } catch(err) { res.status(500).json({ error: err.message }); }
+});
+router.post('/rma-statuses', async (req, res) => {
+  try { const { name, color, sort_order } = req.body; if (!name?.trim()) return res.status(400).json({ error: 'Name required' }); const r = await pool.query('INSERT INTO rma_statuses (name, color, sort_order) VALUES ($1,$2,$3) RETURNING *', [name.trim(), color||'#6b7280', sort_order||99]); res.json(r.rows[0]); } catch(err) { if (err.code==='23505') return res.status(400).json({ error: 'Status name already exists' }); res.status(500).json({ error: err.message }); }
+});
+router.put('/rma-statuses/:id', async (req, res) => {
+  try { const { name, color, sort_order } = req.body; const r = await pool.query('UPDATE rma_statuses SET name=$1, color=$2, sort_order=$3 WHERE id=$4 RETURNING *', [name, color, sort_order||99, req.params.id]); res.json(r.rows[0]); } catch(err) { res.status(500).json({ error: err.message }); }
+});
+router.delete('/rma-statuses/:id', async (req, res) => {
+  try { await pool.query('DELETE FROM rma_statuses WHERE id=$1', [req.params.id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); }
+});
 module.exports = router;
