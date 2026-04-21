@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Save, RefreshCw, Shield, Tag, Link, Clock, ShoppingBag, Activity, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, Save, RefreshCw, Shield, Tag, Link, Clock, ShoppingBag, Activity, RotateCcw, Mail } from 'lucide-react';
 
 const SYNC_FIELDS = [
   { section:'Inventory', fields:[
@@ -31,6 +31,8 @@ const PRESET_COLORS = ['#6366f1','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef444
 export default function Settings() {
   const [general, setGeneral] = useState({ cost_update_mode:'auto', cost_calculation_method:'1', cost_avg_days:'30', cost_avg_type:'cost', archive_sync:'both', shopify_push_mode:'manual', ticket_email:'', rma_status_colors:'{}' });
   const [savingGeneral, setSavingGeneral] = useState(false);
+  const [emailTemplate, setEmailTemplate] = useState({ company_name:'', company_email:'', company_phone:'', company_address:'', logo_url:'', quote_intro:'', quote_footer:'', po_intro:'', po_footer:'' });
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const [draggingId, setDraggingId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
   const [tab, setTab] = useState('shopify');
@@ -55,18 +57,20 @@ export default function Settings() {
 
   const fetchAll = async () => {
     try {
-      const [sRes, wRes, tRes, osRes, rmaRes] = await Promise.all([
+      const [sRes, wRes, tRes, osRes, rmaRes, etRes] = await Promise.all([
         api.get('/settings/shopify').catch(() => ({ data:{} })),
         api.get('/settings/warranty').catch(() => ({ data:{ value:{ period_days:365, period_label:'1 Year' } } })),
         api.get('/settings/ticket-types/all').catch(() => ({ data:[] })),
         api.get('/settings/order-statuses/all').catch(() => ({ data:[] })),
         api.get('/settings/rma-statuses/all').catch(() => ({ data:[] })),
+        api.get('/settings/email-template').catch(() => ({ data:{} })),
       ]);
       if (sRes.data?.shopify_shop) setShopify(sRes.data);
       if (wRes.data?.value) setWarranty(wRes.data.value);
       setTicketTypes(tRes.data || []);
       setOrderStatuses(osRes.data || []);
       setRmaStatuses(rmaRes.data || []);
+      if (etRes.data?.value) setEmailTemplate(et => ({...et, ...etRes.data.value}));
     } catch(e) {}
   };
 
@@ -139,6 +143,7 @@ export default function Settings() {
     { id:'tickets', label:'Ticket Types', icon:Tag },
     { id:'warranty', label:'Warranty', icon:Shield },
     { id:'status-log', label:'Status Log', icon:Activity },
+    { id:'email-templates', label:'Email Templates', icon:Mail },
     { id:'sync', label:'Sync', icon:RefreshCw },
   ];
 
@@ -466,6 +471,71 @@ export default function Settings() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {tab==='email-templates'&&(
+        <div style={{maxWidth:680}}>
+          <h2 style={{fontSize:22,fontWeight:700,marginBottom:8}}>Email Templates</h2>
+          <p style={{opacity:.5,fontSize:13,marginBottom:32}}>Configure your company info and email templates for Quote Requests and Purchase Orders sent to vendors.</p>
+
+          {/* Company Info */}
+          <div style={{marginBottom:24,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
+            <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:16}}>Company Information</label>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              {[['company_name','Company Name'],['company_email','Company Email'],['company_phone','Company Phone'],['company_address','Company Address']].map(([key,label])=>(
+                <div key={key} className="form-group" style={{margin:0}}>
+                  <label className="form-label">{label}</label>
+                  <input value={emailTemplate[key]||''} onChange={e=>setEmailTemplate(t=>({...t,[key]:e.target.value}))} className="form-input" placeholder={label}/>
+                </div>
+              ))}
+            </div>
+            <div className="form-group" style={{marginTop:12}}>
+              <label className="form-label">Logo URL</label>
+              <input value={emailTemplate.logo_url||''} onChange={e=>setEmailTemplate(t=>({...t,logo_url:e.target.value}))} className="form-input" placeholder="https://yoursite.com/logo.png"/>
+              {emailTemplate.logo_url && <img src={emailTemplate.logo_url} alt="Logo preview" style={{marginTop:8,maxHeight:60,borderRadius:4}} onError={e=>e.target.style.display='none'}/>}
+            </div>
+          </div>
+
+          {/* Quote Template */}
+          <div style={{marginBottom:24,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
+            <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:6}}>Quote Request Email Template</label>
+            <p style={{fontSize:12,opacity:.5,marginBottom:12}}>This is sent to vendors when you click "Send to Vendor" on a quote. The line items table is automatically included.</p>
+            <div className="form-group">
+              <label className="form-label">Opening Message</label>
+              <textarea value={emailTemplate.quote_intro||''} onChange={e=>setEmailTemplate(t=>({...t,quote_intro:e.target.value}))} className="form-input" rows={4} placeholder="e.g. Hi, please provide pricing for the following items..."/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Closing / Footer</label>
+              <textarea value={emailTemplate.quote_footer||''} onChange={e=>setEmailTemplate(t=>({...t,quote_footer:e.target.value}))} className="form-input" rows={3} placeholder="e.g. Please reply with your best pricing and availability..."/>
+            </div>
+            <div style={{padding:'10px 14px',background:'rgba(99,102,241,.06)',borderRadius:8,border:'1px solid rgba(99,102,241,.2)',fontSize:12,opacity:.8}}>
+              <strong>Auto-included:</strong> Your company info · Quote number · Date · Line items table (SKU, Name, Vendor SKU, Qty, Unit Cost)
+            </div>
+          </div>
+
+          {/* PO Template */}
+          <div style={{marginBottom:32,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
+            <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:6}}>Purchase Order Email Template</label>
+            <p style={{fontSize:12,opacity:.5,marginBottom:12}}>This is sent to vendors when you send a Purchase Order.</p>
+            <div className="form-group">
+              <label className="form-label">Opening Message</label>
+              <textarea value={emailTemplate.po_intro||''} onChange={e=>setEmailTemplate(t=>({...t,po_intro:e.target.value}))} className="form-input" rows={4} placeholder="e.g. Please find our purchase order below..."/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Closing / Footer</label>
+              <textarea value={emailTemplate.po_footer||''} onChange={e=>setEmailTemplate(t=>({...t,po_footer:e.target.value}))} className="form-input" rows={3} placeholder="e.g. Please confirm receipt and expected delivery date..."/>
+            </div>
+            <div style={{padding:'10px 14px',background:'rgba(99,102,241,.06)',borderRadius:8,border:'1px solid rgba(99,102,241,.2)',fontSize:12,opacity:.8}}>
+              <strong>Auto-included:</strong> Your company info · PO number · Date · Ship-to address · Line items table · Total amount
+            </div>
+          </div>
+
+          <button className="btn btn-primary" style={{padding:'12px 28px',fontSize:15}} disabled={savingTemplate} onClick={async()=>{
+            setSavingTemplate(true);
+            try { await api.post('/settings', { key:'email_template', value: emailTemplate }); toast.success('Email templates saved'); }
+            catch(e) { toast.error('Failed to save'); } finally { setSavingTemplate(false); }
+          }}>{savingTemplate?'Saving...':'Save Email Templates'}</button>
         </div>
       )}
 
