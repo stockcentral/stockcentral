@@ -167,7 +167,7 @@ export default function Tickets() {
   const selectStyle = { padding:'7px 10px', borderRadius:8, border:'1px solid rgba(255,255,255,.12)', background:'rgba(255,255,255,.05)', color:'inherit', fontSize:12 };
 
   return (
-    <div className="page-container" style={{display:'flex',flexDirection:'column',height:'100%',padding:0}}>
+    <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 48px)',margin:'-24px -28px'}}>
       {/* Header */}
       <div style={{padding:'20px 24px 16px',borderBottom:'1px solid rgba(255,255,255,.08)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
         <div>
@@ -460,10 +460,7 @@ export default function Tickets() {
         </div>
       )}
 
-      <style>{`
-        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        .page-container{padding:0!important}
-      `}</style>
+      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }
