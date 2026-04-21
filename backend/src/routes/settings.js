@@ -115,8 +115,8 @@ router.get('/general', async (req, res) => {
 
 router.put('/general', async (req, res) => {
   try {
-    const { cost_update_mode, cost_calculation_method, cost_avg_days, cost_avg_type, archive_sync, shopify_push_mode } = req.body;
-    const updates = { cost_update_mode, cost_calculation_method, cost_avg_days, cost_avg_type, archive_sync, shopify_push_mode };
+    const { cost_update_mode, cost_calculation_method, cost_avg_days, cost_avg_type, archive_sync, shopify_push_mode, ticket_email, rma_status_colors } = req.body;
+const updates = { cost_update_mode, cost_calculation_method, cost_avg_days, cost_avg_type, archive_sync, shopify_push_mode, ticket_email, rma_status_colors };
     for (const [key, value] of Object.entries(updates)) {
       if (value !== undefined) await pool.query(`INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2`, [key, value]);
     }
