@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../App';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { Plus, Search, X, Send, Clock, User, Tag, AlertTriangle, CheckCircle, MessageSquare, RefreshCw, ChevronDown, Lock, Zap, ExternalLink, Trash2, Edit2 } from 'lucide-react';
@@ -40,8 +41,11 @@ function isStale(ticket) {
 }
 
 export default function Tickets() {
+  const { user: currentUser } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterMine, setFilterMine] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
@@ -63,13 +67,33 @@ export default function Tickets() {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const msgEndRef = useRef();
 
-  useEffect(() => { fetchTickets(); fetchStaff(); fetchQuickReplies(); }, []);
+  useEffect(() => {
+    fetchTickets();
+    fetchStaff();
+    fetchQuickReplies();
+    // Poll for new tickets every 30 seconds
+    const interval = setInterval(() => fetchTickets(true), 30000);
+    return () => clearInterval(interval);
+  }, []);
   useEffect(() => { if (sel) { fetchMessages(sel.id); } }, [sel]);
   useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
 
-  const fetchTickets = async () => {
-    try { setLoading(true); const r = await api.get('/tickets'); setTickets(r.data); }
-    catch(e) { toast.error('Failed to load tickets'); } finally { setLoading(false); }
+  const fetchTickets = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      const r = await api.get('/tickets');
+      setTickets(r.data);
+      // Count unread: open tickets that are unassigned and have no staff reply
+      const unread = r.data.filter(t =>
+        t.status === 'open' &&
+        !t.assigned_to_user_id &&
+        (t.last_sender_type === 'customer' || !t.last_sender_type) &&
+        !['resolved','closed'].includes(t.status)
+      ).length;
+      setUnreadCount(unread);
+    }
+    catch(e) { if (!silent) toast.error('Failed to load tickets'); }
+    finally { if (!silent) setLoading(false); }
   };
 
   const fetchStaff = async () => {
@@ -203,13 +227,21 @@ export default function Tickets() {
     finally { setSavingRMA(false); }
   };
 
+  const isNew = (ticket) => {
+    return ticket.status === 'open' &&
+      !ticket.assigned_to_user_id &&
+      (ticket.last_sender_type === 'customer' || !ticket.last_sender_type) &&
+      parseInt(ticket.message_count || 0) <= 1;
+  };
+
   const filtered = tickets.filter(t => {
     const s = search.toLowerCase();
     const matchSearch = !search || t.ticket_number?.toLowerCase().includes(s) || t.subject?.toLowerCase().includes(s) || t.customer_name?.toLowerCase().includes(s) || t.customer_email?.toLowerCase().includes(s);
     const matchStatus = !filterStatus || t.status === filterStatus;
     const matchPriority = !filterPriority || t.priority === filterPriority;
     const matchAssigned = !filterAssigned || (filterAssigned === 'unassigned' ? !t.assigned_to_user_id : t.assigned_to_user_id === filterAssigned);
-    return matchSearch && matchStatus && matchPriority && matchAssigned;
+    const matchMine = !filterMine || t.assigned_to_user_id === currentUser?.id;
+    return matchSearch && matchStatus && matchPriority && matchAssigned && matchMine;
   });
 
   const selectStyle = { padding:'7px 10px', borderRadius:8, border:'1px solid rgba(255,255,255,.12)', background:'rgba(255,255,255,.05)', color:'inherit', fontSize:12 };
@@ -217,13 +249,20 @@ export default function Tickets() {
   return (
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 48px)',margin:'-24px -28px'}}>
       {/* Header */}
-      <div style={{padding:'20px 24px 16px',borderBottom:'1px solid rgba(255,255,255,.08)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+      <div style={{padding:'24px 28px 20px',borderBottom:'1px solid rgba(255,255,255,.08)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
         <div>
-          <h1 className="page-title" style={{margin:0}}>Support Tickets</h1>
-          <p style={{margin:0,opacity:.5,fontSize:13}}>{tickets.length} tickets total · {tickets.filter(t=>t.status==='open').length} open</p>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <h1 style={{margin:0,fontSize:28,fontWeight:800,letterSpacing:'-0.5px'}}>Support Tickets</h1>
+            {unreadCount > 0 && (
+              <span style={{background:'#ef4444',color:'white',borderRadius:20,padding:'3px 10px',fontSize:13,fontWeight:700,animation:'pulse 2s infinite'}}>
+                {unreadCount} new
+              </span>
+            )}
+          </div>
+          <p style={{margin:'4px 0 0',opacity:.5,fontSize:14}}>{tickets.length} tickets total · {tickets.filter(t=>t.status==='open').length} open · {tickets.filter(t=>!t.assigned_to_user_id&&t.status==='open').length} unassigned</p>
         </div>
-        <button className="btn btn-primary" style={{display:'flex',alignItems:'center',gap:6}} onClick={()=>setShowNewTicket(true)}>
-          <Plus size={14}/> New Ticket
+        <button className="btn btn-primary" style={{display:'flex',alignItems:'center',gap:6,padding:'10px 18px',fontSize:14}} onClick={()=>setShowNewTicket(true)}>
+          <Plus size={15}/> New Ticket
         </button>
       </div>
 
@@ -236,6 +275,9 @@ export default function Tickets() {
               <Search size={13} style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',opacity:.4}}/>
               <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search tickets..." style={{...selectStyle,paddingLeft:26,width:'100%',boxSizing:'border-box'}}/>
             </div>
+            <button onClick={()=>setFilterMine(m=>!m)} style={{padding:'7px 12px',borderRadius:8,border:'none',cursor:'pointer',background:filterMine?'#6366f1':'rgba(255,255,255,.08)',color:'inherit',fontSize:12,fontWeight:filterMine?600:400,whiteSpace:'nowrap'}}>
+              My Tickets
+            </button>
             <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={selectStyle}>
               <option value="">All Status</option>
               {Object.entries(STATUS_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
@@ -260,7 +302,11 @@ export default function Tickets() {
                 const isSelected = sel?.id === ticket.id;
                 return (
                   <div key={ticket.id} onClick={()=>openTicket(ticket)}
-                    style={{padding:'12px 16px',borderBottom:'1px solid rgba(255,255,255,.05)',cursor:'pointer',background:isSelected?'rgba(99,102,241,.1)':stale?'rgba(239,68,68,.03)':'transparent',borderLeft:isSelected?'3px solid #6366f1':stale?'3px solid #ef4444':'3px solid transparent',transition:'background .15s'}}>
+                    style={{padding:'14px 16px',borderBottom:'1px solid rgba(255,255,255,.05)',cursor:'pointer',
+                      background:isSelected?'rgba(99,102,241,.12)':isNew(ticket)?'rgba(99,102,241,.06)':stale?'rgba(239,68,68,.03)':'transparent',
+                      borderLeft:isSelected?'3px solid #6366f1':isNew(ticket)?'3px solid #a5b4fc':stale?'3px solid #ef4444':'3px solid transparent',
+                      transition:'background .15s',
+                      boxShadow:isNew(ticket)&&!isSelected?'inset 0 0 0 1px rgba(165,180,252,.15)':'none'}}>
                     <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:4}}>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
@@ -268,7 +314,7 @@ export default function Tickets() {
                           <StatusBadge status={ticket.status}/>
                           {stale && <span style={{fontSize:10,color:'#ef4444',fontWeight:600}}>⚠ Stale</span>}
                         </div>
-                        <div style={{fontWeight:600,fontSize:13,marginTop:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ticket.subject}</div>
+                        <div style={{fontWeight:700,fontSize:14,marginTop:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ticket.subject}{isNew(ticket)&&<span style={{marginLeft:6,fontSize:10,background:'#6366f1',color:'white',borderRadius:4,padding:'1px 5px',verticalAlign:'middle'}}>NEW</span>}</div>
                       </div>
                       <PriorityBadge priority={ticket.priority}/>
                     </div>
