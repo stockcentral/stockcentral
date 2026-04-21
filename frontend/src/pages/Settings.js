@@ -285,7 +285,16 @@ export default function Settings() {
           <p style={{opacity:.6,fontSize:13,marginBottom:20}}>Color-coded types for quick visual reference in your support dashboard.</p>
           <div style={{marginBottom:24}}>
             {ticketTypes.map(t=>(
-              <div key={t.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:'rgba(255,255,255,0.04)',borderRadius:8,marginBottom:6}}>
+              <div key={t.id}
+                draggable
+                onDragStart={()=>setDraggingId(t.id)}
+                onDragOver={e=>{e.preventDefault();setDragOverId(t.id);}}
+                onDrop={()=>reorderList(ticketTypes,setTicketTypes,draggingId,t.id,'/settings/ticket-types')}
+                onDragEnd={()=>{setDraggingId(null);setDragOverId(null);}}
+                style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:dragOverId===t.id?'rgba(99,102,241,.1)':'rgba(255,255,255,0.04)',borderRadius:8,marginBottom:6,cursor:'grab',border:`1px solid ${dragOverId===t.id?'rgba(99,102,241,.4)':'transparent'}`,transition:'all .15s'}}>
+                <div style={{opacity:.3,cursor:'grab',padding:'0 2px',display:'flex',flexDirection:'column',gap:2}}>
+                  {[0,1,2].map(i=><div key={i} style={{width:14,height:2,background:'currentColor',borderRadius:1}}/>)}
+                </div>
                 <div style={{width:14,height:14,borderRadius:3,background:t.color,flexShrink:0}}/>
                 <span style={{flex:1,fontWeight:500}}>{t.name}</span>
                 <span style={{fontSize:11,opacity:.4,fontFamily:'monospace'}}>{t.color}</span>
