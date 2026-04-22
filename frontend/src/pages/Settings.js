@@ -29,7 +29,7 @@ const DIR_LABELS = {
 const PRESET_COLORS = ['#6366f1','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#f97316','#06b6d4','#84cc16','#ec4899'];
 
 export default function Settings() {
-  const [general, setGeneral] = useState({ cost_update_mode:'auto', cost_calculation_method:'1', cost_avg_days:'30', cost_avg_type:'cost', archive_sync:'both', shopify_push_mode:'manual', ticket_email:'', rma_status_colors:'{}' });
+  const [general, setGeneral] = useState({ cost_update_mode:'auto', cost_calculation_method:'1', cost_avg_days:'30', cost_avg_type:'cost', archive_sync:'both', shopify_push_mode:'manual', ticket_email:'', rma_status_colors:'{}', bom_qty_mode:'whole' });
   const [savingGeneral, setSavingGeneral] = useState(false);
   const [emailTemplate, setEmailTemplate] = useState({ company_name:'', company_email:'', company_phone:'', company_address:'', logo_url:'', quote_intro:'', quote_footer:'', po_intro:'', po_footer:'' });
   const [savingTemplate, setSavingTemplate] = useState(false);
