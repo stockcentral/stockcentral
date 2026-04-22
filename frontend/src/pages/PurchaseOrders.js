@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
-import { Plus, X, Search, Package, CheckCircle, AlertTriangle, Clock, Scan, Trash2 } from 'lucide-react';
+import { Plus, X, Search, Package, CheckCircle, AlertTriangle, Clock, Scan, Trash2, Edit2, Check, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { VendorSelect } from './Vendors';
 
 const STATUS_COLORS = {
@@ -15,6 +15,16 @@ const STATUS_LABELS = {
 
 const EMPTY_FORM = { vendor_id:'', expected_date:'', notes:'', status:'pending' };
 
+function CopyBtn({ text }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button onClick={e=>{e.stopPropagation();navigator.clipboard.writeText(text);setCopied(true);setTimeout(()=>setCopied(false),1500);}}
+      style={{background:'none',border:'none',cursor:'pointer',padding:'1px 3px',color:copied?'#10b981':'rgba(255,255,255,.35)',display:'inline-flex',alignItems:'center',verticalAlign:'middle'}}>
+      {copied?<Check size={11}/>:<Copy size={11}/>}
+    </button>
+  );
+}
+
 export default function PurchaseOrders() {
   const [pos, setPOs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,12 +36,20 @@ export default function PurchaseOrders() {
   const [selectedPO, setSelectedPO] = useState(null);
   const [detail, setDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  // Scanning & receiving state
   const [scanSku, setScanSku] = useState('');
-  const [receiving, setReceiving] = useState({});
+  const [pendingReceive, setPendingReceive] = useState({}); // { itemId: qty } — staged before finalizing
   const [rejectModal, setRejectModal] = useState(null);
   const [rejectNote, setRejectNote] = useState('');
   const [rejectQty, setRejectQty] = useState(1);
   const [noteText, setNoteText] = useState('');
+  const [notesOpen, setNotesOpen] = useState(false);
+  // Edit unit cost
+  const [editingCost, setEditingCost] = useState(null);
+  const [editCostVal, setEditCostVal] = useState('');
+  // Edit received qty
+  const [editingReceived, setEditingReceived] = useState(null);
+  const [editReceivedVal, setEditReceivedVal] = useState('');
   const scanRef = useRef();
 
   useEffect(() => { fetchAll(); }, []);
@@ -47,12 +65,13 @@ export default function PurchaseOrders() {
 
   const openPO = async (po) => {
     setSelectedPO(po); setDetail(null); setLoadingDetail(true);
+    setPendingReceive({}); setScanSku(''); setNotesOpen(false);
     try { const r = await api.get(`/purchase-orders/${po.id}`); setDetail(r.data); }
     catch(e) { toast.error('Failed to load PO details'); }
     finally { setLoadingDetail(false); }
   };
 
-  const closePO = () => { setSelectedPO(null); setDetail(null); setScanSku(''); setReceiving({}); };
+  const closePO = () => { setSelectedPO(null); setDetail(null); setPendingReceive({}); setScanSku(''); };
 
   const refreshDetail = async () => {
     if (!selectedPO) return;
@@ -61,33 +80,62 @@ export default function PurchaseOrders() {
     setPOs(prev => prev.map(p => p.id === selectedPO.id ? { ...p, ...r.data } : p));
   };
 
+  // Scan adds to pending (not yet committed)
   const handleScan = async (e) => {
     e.preventDefault();
     if (!scanSku.trim()) return;
-    try {
-      await api.put(`/purchase-orders/${selectedPO.id}/receive-item`, { sku: scanSku.trim(), qty_received: 1 });
-      toast.success(`✓ Received 1x ${scanSku}`);
-      setScanSku('');
-      await refreshDetail();
-    } catch(err) { toast.error(err.response?.data?.error || 'SKU not found on this PO'); }
+    const sku = scanSku.trim().toUpperCase();
+    const item = (detail?.items||[]).find(i => i.sku?.toUpperCase() === sku);
+    if (!item) return toast.error(`SKU ${sku} not found on this PO`);
+    const ordered = item.quantity_ordered || item.quantity || 0;
+    const received = item.quantity_received || 0;
+    const alreadyPending = pendingReceive[item.id] || 0;
+    if (received + alreadyPending >= ordered) return toast.error(`${item.item_name||sku} already fully received`);
+    setPendingReceive(p => ({ ...p, [item.id]: (p[item.id]||0) + 1 }));
+    toast.success(`+1 ${item.item_name||sku} staged`);
+    setScanSku('');
   };
 
-  const receiveItem = async (itemId, qty) => {
-    if (!qty || qty <= 0) return toast.error('Enter a valid quantity');
+  // Update pending qty manually
+  const updatePending = (itemId, qty) => {
+    const q = parseInt(qty);
+    if (isNaN(q) || q < 0) return;
+    if (q === 0) {
+      const np = {...pendingReceive}; delete np[itemId]; setPendingReceive(np);
+    } else {
+      setPendingReceive(p => ({...p, [itemId]: q}));
+    }
+  };
+
+  // Finalize all pending receives in one batch
+  const finalizeReceive = async () => {
+    const entries = Object.entries(pendingReceive).filter(([,q]) => q > 0);
+    if (!entries.length) return toast.error('No items staged to receive');
     try {
-      await api.put(`/purchase-orders/${selectedPO.id}/receive-item`, { po_item_id: itemId, qty_received: parseInt(qty) });
-      toast.success('Received!');
-      setReceiving(r => ({ ...r, [itemId]: '' }));
+      const receivedItems = [];
+      for (const [itemId, qty] of entries) {
+        await api.put(`/purchase-orders/${selectedPO.id}/receive-item`, { po_item_id: itemId, qty_received: qty });
+        const item = detail.items.find(i => i.id === itemId);
+        if (item) receivedItems.push({ name: item.item_name||item.name||item.sku, sku: item.sku, qty });
+      }
+      // Auto-log note
+      const noteLines = receivedItems.map(i => `• ${i.sku} — ${i.name}: ${i.qty} unit${i.qty!==1?'s':''}`).join('\n');
+      const noteText = `Received:\n${noteLines}`;
+      await api.post(`/purchase-orders/${selectedPO.id}/notes`, { note: noteText, note_type: 'receive' });
+      toast.success(`Received ${entries.length} item${entries.length!==1?'s':''}`);
+      setPendingReceive({});
       await refreshDetail();
-    } catch(e) { toast.error('Failed to receive'); }
+    } catch(e) { toast.error('Failed to receive items'); }
   };
 
   const submitReject = async () => {
     try {
       await api.post(`/purchase-orders/${selectedPO.id}/reject-item`, {
-        po_item_id: rejectModal, qty_rejected: rejectQty, note: rejectNote
+        po_item_id: rejectModal.id, qty_rejected: rejectQty, note: rejectNote
       });
-      toast.success('Item rejected and noted');
+      const noteText = `Rejected: • ${rejectModal.sku} — ${rejectModal.name}: ${rejectQty} unit${rejectQty!==1?'s':''}\nReason: ${rejectNote}`;
+      await api.post(`/purchase-orders/${selectedPO.id}/notes`, { note: noteText, note_type: 'rejection' });
+      toast.success('Item rejected and logged');
       setRejectModal(null); setRejectNote(''); setRejectQty(1);
       await refreshDetail();
     } catch(e) { toast.error('Failed'); }
@@ -97,10 +145,28 @@ export default function PurchaseOrders() {
     if (!noteText.trim()) return;
     try {
       await api.post(`/purchase-orders/${selectedPO.id}/notes`, { note: noteText });
-      toast.success('Note added');
-      setNoteText('');
+      toast.success('Note added'); setNoteText('');
       await refreshDetail();
     } catch(e) { toast.error('Failed to add note'); }
+  };
+
+  const saveEditCost = async (itemId) => {
+    if (!editCostVal) return;
+    try {
+      await api.put(`/purchase-orders/${selectedPO.id}/item/${itemId}`, { unit_cost: parseFloat(editCostVal) });
+      toast.success('Cost updated'); setEditingCost(null);
+      await refreshDetail();
+    } catch(e) { toast.error('Failed'); }
+  };
+
+  const saveEditReceived = async (itemId) => {
+    const newQty = parseInt(editReceivedVal);
+    if (isNaN(newQty) || newQty < 0) return toast.error('Invalid quantity');
+    try {
+      await api.put(`/purchase-orders/${selectedPO.id}/item/${itemId}`, { quantity_received: newQty });
+      toast.success('Quantity updated'); setEditingReceived(null);
+      await refreshDetail();
+    } catch(e) { toast.error('Failed'); }
   };
 
   const createPO = async () => {
@@ -135,6 +201,8 @@ export default function PurchaseOrders() {
     if (!ordered) return 0;
     return Math.min(100, Math.round((received / ordered) * 100));
   };
+
+  const pendingCount = Object.values(pendingReceive).reduce((s,q)=>s+q,0);
 
   return (
     <div className="page-container">
@@ -191,10 +259,11 @@ export default function PurchaseOrders() {
       {/* PO DETAIL MODAL */}
       {selectedPO && (
         <div className="modal-overlay" onClick={e => { if (e.target.className === 'modal-overlay') closePO(); }}>
-          <div className="modal" style={{ maxWidth:900, width:'95vw', maxHeight:'90vh', display:'flex', flexDirection:'column' }}>
+          <div className="modal" style={{ maxWidth:960, width:'95vw', maxHeight:'92vh', display:'flex', flexDirection:'column' }}>
+            {/* Header */}
             <div className="modal-header" style={{ flexShrink:0 }}>
-              <div>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{flex:1}}>
+                <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
                   <h2 style={{ margin:0 }}>{selectedPO.po_number}</h2>
                   <span style={{ fontSize:12, padding:'3px 10px', borderRadius:10, fontWeight:600,
                     color: STATUS_COLORS[selectedPO.status]||'#6b7280',
@@ -206,130 +275,184 @@ export default function PurchaseOrders() {
                   {selectedPO.vendor_name} · Created {new Date(selectedPO.created_at).toLocaleDateString()}
                   {selectedPO.expected_date && ` · Expected ${new Date(selectedPO.expected_date).toLocaleDateString()}`}
                 </div>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                {/* Source quote — bottom left of header */}
                 {(detail?.source_quote_number || selectedPO.source_quote_number) && (
-                  <div style={{marginTop:6,display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:6,background:'rgba(99,102,241,.12)',border:'1px solid rgba(99,102,241,.25)',fontSize:12}}>
-                    <span style={{opacity:.6}}>Converted from quote</span>
+                  <div style={{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:6,background:'rgba(99,102,241,.12)',border:'1px solid rgba(99,102,241,.25)',fontSize:12}}>
+                    <span style={{opacity:.6}}>From quote</span>
                     <span style={{color:'#818cf8',fontWeight:700}}>{detail?.source_quote_number || selectedPO.source_quote_number}</span>
                   </div>
                 )}
+                <button className="modal-close" onClick={closePO}><X size={18}/></button>
               </div>
-              <button className="modal-close" onClick={closePO}><X size={18}/></button>
             </div>
 
             <div className="modal-body" style={{ flex:1, overflowY:'auto' }}>
               {loadingDetail ? <div style={{ textAlign:'center', padding:40, opacity:.5 }}>Loading...</div> : detail && (<>
 
-                {/* SKU Scanner */}
+                {/* Scan to Receive */}
                 {detail.status !== 'received' && detail.status !== 'cancelled' && (
                   <div style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.25)', borderRadius:10, padding:14, marginBottom:16 }}>
                     <div style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', opacity:.5, marginBottom:6, display:'flex', alignItems:'center', gap:6 }}>
-                      <Scan size={12}/> Scan to Receive
+                      <Scan size={12}/> Scan to Stage Items
                     </div>
                     <div style={{ fontSize:11, opacity:.5, marginBottom:8 }}>
-                      Each scan receives 1 unit. Scan the same item multiple times to receive multiple units.
+                      Scan barcodes to stage items. Each scan adds 1 unit. Hit <strong>Receive All</strong> to finalize and log.
                     </div>
-                    <form onSubmit={handleScan} style={{ display:'flex', gap:8 }}>
-                      <input ref={scanRef} value={scanSku} onChange={e => setScanSku(e.target.value)}
-                        className="form-input" placeholder="Scan barcode or type SKU and press Enter..."
-                        style={{ flex:1 }} autoFocus/>
-                      <button type="submit" className="btn btn-primary" style={{ fontSize:13 }}>Receive 1</button>
-                    </form>
+                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                      <form onSubmit={handleScan} style={{ display:'flex', gap:8, flex:1 }}>
+                        <input ref={scanRef} value={scanSku} onChange={e => setScanSku(e.target.value)}
+                          className="form-input" placeholder="Scan barcode or type SKU..."
+                          style={{ flex:1 }} autoFocus/>
+                        <button type="submit" className="btn btn-secondary" style={{ fontSize:13 }}>Stage</button>
+                      </form>
+                      {pendingCount > 0 && (
+                        <button onClick={finalizeReceive} className="btn btn-primary" style={{fontSize:13,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6}}>
+                          <CheckCircle size={14}/> Receive All ({pendingCount} unit{pendingCount!==1?'s':''})
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
-                {/* Line items */}
+                {/* Line Items */}
                 <div style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', opacity:.5, marginBottom:10 }}>
                   Line Items — {(detail.items||[]).length} products
                 </div>
                 {(detail.items||[]).map(item => {
                   const ordered = item.quantity_ordered || item.quantity || 0;
                   const received = item.quantity_received || item.received_quantity || 0;
+                  const pending = pendingReceive[item.id] || 0;
                   const remaining = Math.max(0, ordered - received);
-                  const pct = ordered > 0 ? Math.min(100, Math.round((received / ordered) * 100)) : 0;
+                  const pct = ordered > 0 ? Math.min(100, Math.round(((received+pending) / ordered) * 100)) : 0;
                   const fullyReceived = received >= ordered;
                   return (
                     <div key={item.id} style={{ background:'rgba(255,255,255,0.04)', borderRadius:10, padding:14, marginBottom:8,
-                      border: `1px solid ${fullyReceived ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}` }}>
-                      <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
-                        <div style={{ flex:1 }}>
+                      border: `1px solid ${pending>0?'rgba(99,102,241,.4)':fullyReceived ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                      transition:'border-color .2s' }}>
+                      <div style={{ display:'flex', alignItems:'flex-start', gap:12, flexWrap:'wrap' }}>
+                        <div style={{ flex:1, minWidth:180 }}>
                           <div style={{ fontWeight:600, fontSize:14 }}>{item.item_name || item.name || item.sku}</div>
-                          <div style={{ fontSize:12, opacity:.5, marginTop:2 }}>
-                            SKU: {item.sku} · ${parseFloat(item.unit_cost||0).toFixed(2)}/unit
-                            {item.rejected_quantity > 0 && <span style={{ color:'#ef4444', marginLeft:8 }}>⚠ {item.rejected_quantity} rejected</span>}
+                          <div style={{ fontSize:12, opacity:.5, marginTop:2, display:'flex', alignItems:'center', gap:4 }}>
+                            <span style={{fontFamily:'monospace'}}>{item.sku}</span>
+                            <CopyBtn text={item.sku}/>
+                            {item.rejected_quantity > 0 && <span style={{ color:'#ef4444', marginLeft:4 }}>⚠ {item.rejected_quantity} rejected</span>}
                           </div>
                         </div>
-                        {/* Quantity summary */}
-                        <div style={{ textAlign:'right', flexShrink:0 }}>
-                          <div style={{ display:'flex', gap:16, alignItems:'center' }}>
-                            <div style={{ textAlign:'center' }}>
-                              <div style={{ fontSize:10, opacity:.4, textTransform:'uppercase', marginBottom:2 }}>Ordered</div>
-                              <div style={{ fontWeight:700, fontSize:16 }}>{ordered}</div>
-                            </div>
-                            <div style={{ textAlign:'center' }}>
-                              <div style={{ fontSize:10, opacity:.4, textTransform:'uppercase', marginBottom:2 }}>Received</div>
-                              <div style={{ fontWeight:700, fontSize:16, color: fullyReceived ? '#10b981' : received > 0 ? '#f59e0b' : 'inherit' }}>{received}</div>
-                            </div>
-                            <div style={{ textAlign:'center' }}>
-                              <div style={{ fontSize:10, opacity:.4, textTransform:'uppercase', marginBottom:2 }}>Remaining</div>
-                              <div style={{ fontWeight:700, fontSize:16, color: remaining > 0 ? '#ef4444' : '#10b981' }}>{remaining}</div>
-                            </div>
-                            {fullyReceived
-                              ? <CheckCircle size={22} style={{ color:'#10b981', flexShrink:0 }}/>
-                              : <Package size={22} style={{ opacity:.3, flexShrink:0 }}/>}
+
+                        {/* Qty summary */}
+                        <div style={{ display:'flex', gap:12, alignItems:'center', flexShrink:0 }}>
+                          <div style={{ textAlign:'center' }}>
+                            <div style={{ fontSize:10, opacity:.4, textTransform:'uppercase', marginBottom:2 }}>Ordered</div>
+                            <div style={{ fontWeight:700, fontSize:16 }}>{ordered}</div>
                           </div>
+                          <div style={{ textAlign:'center' }}>
+                            <div style={{ fontSize:10, opacity:.4, textTransform:'uppercase', marginBottom:2 }}>Received</div>
+                            {editingReceived === item.id ? (
+                              <div style={{display:'flex',gap:3,alignItems:'center'}}>
+                                <input type="number" min="0" max={ordered} value={editReceivedVal} onChange={e=>setEditReceivedVal(e.target.value)}
+                                  style={{width:50,padding:'2px 4px',borderRadius:4,border:'1px solid rgba(255,255,255,.2)',background:'rgba(255,255,255,.08)',color:'inherit',fontSize:13,textAlign:'center'}}
+                                  autoFocus onKeyDown={e=>{if(e.key==='Enter')saveEditReceived(item.id);if(e.key==='Escape')setEditingReceived(null);}}/>
+                                <button onClick={()=>saveEditReceived(item.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#10b981',padding:1}}><Check size={12}/></button>
+                                <button onClick={()=>setEditingReceived(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',padding:1}}><X size={12}/></button>
+                              </div>
+                            ) : (
+                              <div style={{display:'flex',alignItems:'center',gap:4}}>
+                                <span style={{ fontWeight:700, fontSize:16, color: fullyReceived ? '#10b981' : received > 0 ? '#f59e0b' : 'inherit' }}>{received}</span>
+                                <button onClick={()=>{setEditingReceived(item.id);setEditReceivedVal(received);}} style={{background:'none',border:'none',cursor:'pointer',opacity:.3,padding:1,color:'inherit'}}><Edit2 size={10}/></button>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ textAlign:'center' }}>
+                            <div style={{ fontSize:10, opacity:.4, textTransform:'uppercase', marginBottom:2 }}>Remaining</div>
+                            <div style={{ fontWeight:700, fontSize:16, color: remaining > 0 ? '#ef4444' : '#10b981' }}>{remaining}</div>
+                          </div>
+                          {/* Unit Cost — editable */}
+                          <div style={{ textAlign:'center' }}>
+                            <div style={{ fontSize:10, opacity:.4, textTransform:'uppercase', marginBottom:2 }}>Unit Cost</div>
+                            {editingCost === item.id ? (
+                              <div style={{display:'flex',gap:3,alignItems:'center'}}>
+                                <span style={{opacity:.5,fontSize:12}}>$</span>
+                                <input type="number" step="0.01" min="0" value={editCostVal} onChange={e=>setEditCostVal(e.target.value)}
+                                  style={{width:60,padding:'2px 4px',borderRadius:4,border:'1px solid rgba(255,255,255,.2)',background:'rgba(255,255,255,.08)',color:'inherit',fontSize:13,textAlign:'center'}}
+                                  autoFocus onKeyDown={e=>{if(e.key==='Enter')saveEditCost(item.id);if(e.key==='Escape')setEditingCost(null);}}/>
+                                <button onClick={()=>saveEditCost(item.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#10b981',padding:1}}><Check size={12}/></button>
+                                <button onClick={()=>setEditingCost(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',padding:1}}><X size={12}/></button>
+                              </div>
+                            ) : (
+                              <div style={{display:'flex',alignItems:'center',gap:4}}>
+                                <span style={{fontWeight:600,fontSize:14}}>${parseFloat(item.unit_cost||0).toFixed(2)}</span>
+                                <button onClick={()=>{setEditingCost(item.id);setEditCostVal(item.unit_cost||0);}} style={{background:'none',border:'none',cursor:'pointer',opacity:.3,padding:1,color:'inherit'}}><Edit2 size={10}/></button>
+                              </div>
+                            )}
+                          </div>
+                          {fullyReceived ? <CheckCircle size={20} style={{ color:'#10b981' }}/> : <Package size={20} style={{ opacity:.2 }}/>}
                         </div>
                       </div>
 
                       {/* Progress bar */}
                       <div style={{ margin:'10px 0 8px', height:4, background:'rgba(255,255,255,0.1)', borderRadius:2 }}>
-                        <div style={{ width:`${pct}%`, height:'100%', background: fullyReceived?'#10b981':'#3b82f6', borderRadius:2 }}/>
+                        <div style={{ width:`${pct}%`, height:'100%', background: fullyReceived?'#10b981':pending>0?'#6366f1':'#3b82f6', borderRadius:2, transition:'width .3s' }}/>
                       </div>
 
-                      {/* Receive + Reject controls */}
+                      {/* Pending indicator + manual receive controls */}
                       {!fullyReceived && detail.status !== 'cancelled' && (
-                        <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:8 }}>
-                          <input type="number" min="1" max={remaining}
-                            value={receiving[item.id]||''} onChange={e => setReceiving(r => ({...r,[item.id]:e.target.value}))}
-                            className="form-input" style={{ width:80, padding:'4px 8px', fontSize:12 }} placeholder={`Max ${remaining}`}/>
-                          <button className="btn btn-secondary" style={{ fontSize:12, padding:'4px 12px' }}
-                            onClick={() => receiveItem(item.id, receiving[item.id]||1)}>
-                            Receive
-                          </button>
-                          <button onClick={() => { setRejectModal(item.id); setRejectQty(1); setRejectNote(''); }}
+                        <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:4, flexWrap:'wrap' }}>
+                          {pending > 0 && (
+                            <span style={{fontSize:12,padding:'2px 8px',borderRadius:6,background:'rgba(99,102,241,.15)',color:'#818cf8',fontWeight:600}}>
+                              +{pending} staged
+                            </span>
+                          )}
+                          <input type="number" min="0" max={remaining}
+                            value={pending||''} onChange={e => updatePending(item.id, e.target.value)}
+                            className="form-input" style={{ width:70, padding:'4px 8px', fontSize:12 }} placeholder={`Max ${remaining}`}/>
+                          <button onClick={() => { setRejectModal(item); setRejectQty(1); setRejectNote(''); }}
                             style={{ fontSize:12, padding:'4px 10px', borderRadius:6, border:'1px solid rgba(239,68,68,0.4)', background:'none', cursor:'pointer', color:'#ef4444' }}>
                             Reject
                           </button>
-                          <span style={{ fontSize:11, opacity:.4, marginLeft:4 }}>
-                            {remaining} unit{remaining!==1?'s':''} remaining
-                          </span>
+                          <span style={{fontSize:11,opacity:.4}}>{remaining} remaining</span>
                         </div>
                       )}
                     </div>
                   );
                 })}
 
-                {/* Notes */}
-                <div style={{ marginTop:20 }}>
-                  <div style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', opacity:.5, marginBottom:8, display:'flex', alignItems:'center', gap:6 }}>
-                    <Clock size={12}/> Notes & Activity
+                {/* Notes & Activity — collapsible */}
+                <div style={{ marginTop:20, background:'rgba(255,255,255,.03)', borderRadius:10, border:'1px solid rgba(255,255,255,.07)' }}>
+                  <div onClick={()=>setNotesOpen(o=>!o)} style={{ padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', userSelect:'none', borderBottom: notesOpen?'1px solid rgba(255,255,255,.07)':'none', borderRadius: notesOpen?'10px 10px 0 0':'10px' }}>
+                    <span style={{ fontWeight:600, fontSize:13, display:'flex', alignItems:'center', gap:6 }}>
+                      <Clock size={13}/> Notes & Activity
+                      {!notesOpen && (detail.notes||[]).length > 0 && <span style={{fontSize:11,opacity:.4,fontWeight:400}}>({(detail.notes||[]).length})</span>}
+                    </span>
+                    {notesOpen ? <ChevronUp size={14} style={{opacity:.5}}/> : <ChevronDown size={14} style={{opacity:.5}}/>}
                   </div>
-                  <div style={{ display:'flex', gap:8, marginBottom:12 }}>
-                    <input value={noteText} onChange={e => setNoteText(e.target.value)}
-                      className="form-input" style={{ flex:1 }} placeholder="Add a note..."
-                      onKeyDown={e => e.key==='Enter' && addNote()}/>
-                    <button className="btn btn-secondary" onClick={addNote} style={{ fontSize:12 }}>Add</button>
-                  </div>
-                  {(detail.notes||[]).length === 0
-                    ? <div style={{ opacity:.4, fontSize:12, fontStyle:'italic' }}>No notes yet.</div>
-                    : (detail.notes||[]).map(n => (
-                      <div key={n.id} style={{ fontSize:12, padding:'7px 12px',
-                        background: n.note_type==='rejection'?'rgba(239,68,68,0.08)':'rgba(99,102,241,0.07)',
-                        borderRadius:8, marginBottom:5, borderLeft:`3px solid ${n.note_type==='rejection'?'#ef4444':'#6366f1'}` }}>
-                        <div>{n.note}</div>
-                        <div style={{ opacity:.4, marginTop:3 }}>{n.author_name} · {new Date(n.created_at).toLocaleString()}</div>
+                  {notesOpen && (
+                    <div style={{ padding:'14px 16px' }}>
+                      <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+                        <input value={noteText} onChange={e => setNoteText(e.target.value)}
+                          className="form-input" style={{ flex:1 }} placeholder="Add a note... (Enter to submit)"
+                          onKeyDown={e => e.key==='Enter' && addNote()}/>
+                        <button className="btn btn-secondary" onClick={addNote} style={{ fontSize:12 }}>Add</button>
                       </div>
-                    ))
-                  }
+                      {(detail.notes||[]).length === 0
+                        ? <div style={{ opacity:.4, fontSize:12, fontStyle:'italic' }}>No notes yet.</div>
+                        : [...(detail.notes||[])].reverse().map(n => (
+                          <div key={n.id} style={{ fontSize:12, padding:'10px 12px',
+                            background: n.note_type==='rejection'?'rgba(239,68,68,0.08)':n.note_type==='receive'?'rgba(16,185,129,.08)':'rgba(99,102,241,0.07)',
+                            borderRadius:8, marginBottom:6,
+                            borderLeft:`3px solid ${n.note_type==='rejection'?'#ef4444':n.note_type==='receive'?'#10b981':'#6366f1'}` }}>
+                            <div style={{whiteSpace:'pre-wrap'}}>{n.note}</div>
+                            <div style={{ opacity:.4, marginTop:4, display:'flex', gap:6 }}>
+                              <span>{n.author_name||'System'}</span>
+                              <span>·</span>
+                              <span>{new Date(n.created_at).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
                 </div>
               </>)}
             </div>
@@ -343,6 +466,7 @@ export default function PurchaseOrders() {
           <div className="modal" style={{ maxWidth:400 }}>
             <div className="modal-header"><h2>Reject Item</h2><button className="modal-close" onClick={() => setRejectModal(null)}><X size={18}/></button></div>
             <div className="modal-body">
+              <div style={{marginBottom:12,fontWeight:500}}>{rejectModal.item_name||rejectModal.name||rejectModal.sku}</div>
               <div className="form-group">
                 <label className="form-label">Quantity to Reject</label>
                 <input type="number" min="1" value={rejectQty} onChange={e => setRejectQty(parseInt(e.target.value)||1)} className="form-input"/>
