@@ -97,7 +97,20 @@ router.post('/send-quote', auth, async (req, res) => {
     try { tmpl = tmplRes.rows[0] ? (typeof tmplRes.rows[0].value === 'string' ? JSON.parse(tmplRes.rows[0].value) : tmplRes.rows[0].value) : {}; } catch(e) { tmpl = {}; }
     const vendorEmail = quote.sales_rep_email || quote.vendor_email;
     if (!vendorEmail) return res.status(400).json({ error: 'Vendor has no email address' });
-    const itemsTable = `<table style="width:100%;border-collapse:collapse;margin:16px 0"><thead><tr style="background:#f3f4f6"><th style="padding:8px;text-align:left;border:1px solid #e5e7eb">SKU</th><th style="padding:8px;text-align:left;border:1px solid #e5e7eb">Product</th><th style="padding:8px;text-align:left;border:1px solid #e5e7eb">Vendor SKU</th><th style="padding:8px;text-align:center;border:1px solid #e5e7eb">Qty</th><th style="padding:8px;text-align:right;border:1px solid #e5e7eb">Unit Cost</th></tr></thead><tbody>${items.map(i=>`<tr><td style="padding:8px;border:1px solid #e5e7eb">${i.sku||''}</td><td style="padding:8px;border:1px solid #e5e7eb">${i.name||''}</td><td style="padding:8px;border:1px solid #e5e7eb">${i.vendor_sku||''}</td><td style="padding:8px;text-align:center;border:1px solid #e5e7eb">${i.quantity}</td><td style="padding:8px;text-align:right;border:1px solid #e5e7eb">${i.unit_cost?'$'+parseFloat(i.unit_cost).toFixed(2):'TBD'}</td></tr>`).join('')}</tbody></table>`;
+    // Build column list based on template settings
+    const cols = [
+      { key:'show_sku', label:'SKU', val: i => i.sku||'' },
+      { key:'show_name', label:'Product Name', val: i => i.name||'' },
+      { key:'show_vendor_sku', label:'Vendor SKU', val: i => i.vendor_sku||'' },
+      { key:'show_barcode', label:'Barcode', val: i => i.barcode||'' },
+      { key:'show_quantity', label:'Qty', val: i => i.quantity, center: true },
+      { key:'show_unit_cost', label:'Unit Cost', val: i => i.unit_cost?'$'+parseFloat(i.unit_cost).toFixed(2):'TBD', right: true },
+      { key:'show_net_terms', label:'Net Terms', val: () => tmpl.net_terms||'' },
+      { key:'show_notes', label:'Notes', val: i => i.notes||'' },
+    ].filter(c => tmpl[c.key] !== false);
+    const thStyle = align => `padding:8px;text-align:${align||'left'};border:1px solid #e5e7eb`;
+    const tdStyle = align => `padding:8px;text-align:${align||'left'};border:1px solid #e5e7eb`;
+    const itemsTable = `<table style="width:100%;border-collapse:collapse;margin:16px 0"><thead><tr style="background:#f3f4f6">${cols.map(c=>`<th style="${thStyle(c.center?'center':c.right?'right':'left')}">${c.label}</th>`).join('')}</tr></thead><tbody>${items.map(i=>`<tr>${cols.map(c=>`<td style="${tdStyle(c.center?'center':c.right?'right':'left')}">${c.val(i)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
     const logoHtml = tmpl.logo_url ? `<img src="${tmpl.logo_url}" style="max-height:60px;margin-bottom:16px" alt="Logo"/>` : '';
     const companyHtml = `<div style="margin-bottom:16px;font-size:13px;color:#6b7280">${tmpl.company_name?`<strong>${tmpl.company_name}</strong><br/>`:''}${tmpl.company_email?`${tmpl.company_email}<br/>`:''}${tmpl.company_phone?`${tmpl.company_phone}<br/>`:''}${tmpl.company_address||''}</div>`;
     const html = `<div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;padding:24px">${logoHtml}${companyHtml}<h2 style="color:#1f2937">Quote Request: ${quote.quote_number}</h2><p style="color:#6b7280">Date: ${new Date().toLocaleDateString()}</p>${tmpl.quote_intro?`<p>${tmpl.quote_intro}</p>`:''}${itemsTable}${tmpl.quote_footer?`<p>${tmpl.quote_footer}</p>`:''}<hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb"/><p style="font-size:12px;color:#9ca3af">Reply to this email to respond. Reference: ${quote.quote_number}</p></div>`;
