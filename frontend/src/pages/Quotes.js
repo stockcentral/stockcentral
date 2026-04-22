@@ -99,6 +99,7 @@ export default function Quotes() {
   const [sendingReply, setSendingReply] = useState(false);
   const [activeTab, setActiveTab] = useState('items');
   const [saving, setSaving] = useState(false);
+  const [listTab, setListTab] = useState('active');
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -225,7 +226,15 @@ export default function Quotes() {
 
   const confirmedItems = items.filter(i => i.inventory_item_id);
   const subtotal = confirmedItems.reduce((s, i) => s + ((parseFloat(i.unit_cost)||0) * (parseInt(i.quantity)||0)), 0);
-  const filtered = quotes.filter(q => !search || q.quote_number?.toLowerCase().includes(search.toLowerCase()) || q.vendor_name?.toLowerCase().includes(search.toLowerCase()));
+  const filtered = quotes.filter(q => {
+    if (listTab === 'active' && q.status === 'converted') return false;
+    if (listTab === 'converted' && q.status !== 'converted') return false;
+    if (search) {
+      const s = search.toLowerCase();
+      return q.quote_number?.toLowerCase().includes(s) || q.vendor_name?.toLowerCase().includes(s);
+    }
+    return true;
+  });
 
   const tabStyle = (id) => ({
     padding:'8px 16px', background:'none', border:'none', cursor:'pointer', fontSize:13, fontWeight:activeTab===id?600:400,
@@ -235,8 +244,26 @@ export default function Quotes() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <div><h1 className="page-title">Quote Requests</h1><p className="page-subtitle">{quotes.length} quotes · {quotes.filter(q=>q.status==='draft').length} drafts</p></div>
+        <div><h1 className="page-title">Quote Requests</h1><p className="page-subtitle">{quotes.filter(q=>q.status!=='converted').length} active · {quotes.filter(q=>q.status==='converted').length} converted</p></div>
         <button className="btn btn-primary" onClick={openNew}><Plus size={16}/> New Quote</button>
+      </div>
+
+      {/* Tabs */}
+      <div style={{display:'flex',gap:2,marginBottom:16,borderBottom:'1px solid rgba(255,255,255,.08)'}}>
+        {[['active','Active'],['converted','Converted'],['all','All']].map(([id,label])=>{
+          const count = id==='active' ? quotes.filter(q=>q.status!=='converted').length
+                      : id==='converted' ? quotes.filter(q=>q.status==='converted').length
+                      : quotes.length;
+          return (
+            <button key={id} onClick={()=>setListTab(id)}
+              style={{padding:'8px 18px',background:'none',border:'none',cursor:'pointer',fontSize:13,
+                fontWeight:listTab===id?600:400,
+                borderBottom:listTab===id?'2px solid #6366f1':'2px solid transparent',
+                color:listTab===id?'#6366f1':'inherit'}}>
+              {label} ({count})
+            </button>
+          );
+        })}
       </div>
 
       <div className="search-bar">
