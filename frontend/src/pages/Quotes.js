@@ -124,9 +124,17 @@ export default function Quotes() {
   const openQuote = async (q) => {
     setSelected(q);
     setForm({ vendor_id: q.vendor_id||'', notes: q.notes||'', shopify_order_ids: q.shopify_order_ids||'', status: q.status||'draft' });
-    const confirmedItems = (q.items || []).map(i => ({...EMPTY_ITEM, ...i, search: `${i.sku} — ${i.name}`}));
-    setItems([...confirmedItems, {...EMPTY_ITEM}]);
+    setItems([{...EMPTY_ITEM}]);
     setEmails([]); setIsDirty(false); setActiveTab('items'); setShowModal(true);
+    // Fetch full quote with items
+    try {
+      const r = await api.get(`/quotes/${q.id}`);
+      const full = r.data;
+      setSelected(full);
+      setForm({ vendor_id: full.vendor_id||'', notes: full.notes||'', shopify_order_ids: full.shopify_order_ids||'', status: full.status||'draft' });
+      const confirmedItems = (full.items || []).map(i => ({...EMPTY_ITEM, ...i, search: `${i.sku} — ${i.name}`}));
+      setItems([...confirmedItems, {...EMPTY_ITEM}]);
+    } catch(e) { toast.error('Failed to load quote items'); }
     fetchEmails(q.id);
   };
 
