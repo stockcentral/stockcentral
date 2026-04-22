@@ -243,6 +243,14 @@ export default function Settings() {
             <input value={general.ticket_email||''} onChange={e=>setGeneral(g=>({...g,ticket_email:e.target.value}))} placeholder="support@yourdomain.com" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.06)',color:'inherit',fontSize:14,boxSizing:'border-box'}}/>
           </div>
 
+            <div style={{marginBottom:24,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
+  <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:6}}>Bill of Materials — Quantity Mode</label>
+  <p style={{fontSize:12,opacity:.5,marginBottom:10}}>Should component quantities support whole numbers only, or allow decimals (e.g. 0.5 meters of wire)?</p>
+  <select value={general.bom_qty_mode||'whole'} onChange={e=>setGeneral(g=>({...g,bom_qty_mode:e.target.value}))} style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.06)',color:'inherit',fontSize:14}}>
+    <option value="whole">Whole numbers only (e.g. 1, 2, 5)</option>
+    <option value="decimal">Decimal quantities allowed (e.g. 0.5, 1.25)</option>
+  </select>
+</div>
           <button className="btn btn-primary" style={{padding:'12px 28px',fontSize:15}} disabled={savingGeneral} onClick={async()=>{setSavingGeneral(true);try{await api.put('/settings/general',general);toast.success('General settings saved');}catch(e){toast.error('Failed to save');}finally{setSavingGeneral(false);}}}>
             {savingGeneral?'Saving...':'Save General Settings'}
           </button>
