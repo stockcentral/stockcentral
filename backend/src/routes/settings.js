@@ -54,15 +54,15 @@ router.get('/general', async (req, res) => {
       archive_sync: map.archive_sync||'both',
       shopify_push_mode: map.shopify_push_mode||'manual',
       ticket_email: map.ticket_email||'',
-      rma_status_colors: map.rma_status_colors||'{}'
+      rma_status_colors: map.rma_status_colors||'{}',
+      bom_qty_mode: map.bom_qty_mode||'whole'
     });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-
 router.put('/general', async (req, res) => {
   try {
     const { cost_update_mode, cost_calculation_method, cost_avg_days, cost_avg_type, archive_sync, shopify_push_mode, ticket_email, rma_status_colors, bom_qty_mode } = req.body;
-const updates = { cost_update_mode, cost_calculation_method, cost_avg_days, cost_avg_type, archive_sync, shopify_push_mode, ticket_email, rma_status_colors, bom_qty_mode };
+    const updates = { cost_update_mode, cost_calculation_method, cost_avg_days, cost_avg_type, archive_sync, shopify_push_mode, ticket_email, rma_status_colors, bom_qty_mode };
     for (const [key, value] of Object.entries(updates)) {
       if (value !== undefined) await pool.query(
         `INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2`,
