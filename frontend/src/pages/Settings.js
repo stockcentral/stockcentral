@@ -482,90 +482,201 @@ export default function Settings() {
         </div>
       )}
 
-      {tab==='email-templates'&&(
-        <div style={{maxWidth:680}}>
-          <h2 style={{fontSize:22,fontWeight:700,marginBottom:8}}>Email Templates</h2>
-          <p style={{opacity:.5,fontSize:13,marginBottom:32}}>Configure your company info and email templates for Quote Requests and Purchase Orders sent to vendors.</p>
+     // This replaces the entire {tab==='email-templates'&&(...)} block in Settings.js
 
-          {/* Company Info */}
-          <div style={{marginBottom:24,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
-            <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:16}}>Company Information</label>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-              {[['company_name','Company Name'],['company_email','Company Email'],['company_phone','Company Phone'],['company_address','Company Address']].map(([key,label])=>(
-                <div key={key} className="form-group" style={{margin:0}}>
-                  <label className="form-label">{label}</label>
-                  <input value={emailTemplate[key]||''} onChange={e=>setEmailTemplate(t=>({...t,[key]:e.target.value}))} className="form-input" placeholder={label}/>
-                </div>
-              ))}
-            </div>
-            <div className="form-group" style={{marginTop:12}}>
-              <label className="form-label">Logo URL</label>
-              <input value={emailTemplate.logo_url||''} onChange={e=>setEmailTemplate(t=>({...t,logo_url:e.target.value}))} className="form-input" placeholder="https://yoursite.com/logo.png"/>
-              {emailTemplate.logo_url && <img src={emailTemplate.logo_url} alt="Logo preview" style={{marginTop:8,maxHeight:60,borderRadius:4}} onError={e=>e.target.style.display='none'}/>}
-            </div>
+{tab==='email-templates'&&(
+  <div style={{maxWidth:860}}>
+    <h2 style={{fontSize:22,fontWeight:700,marginBottom:8}}>Email Templates</h2>
+    <p style={{opacity:.5,fontSize:13,marginBottom:24}}>Configure your company info and email templates for quotes and purchase orders sent to vendors.</p>
+
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
+
+      {/* LEFT COLUMN — Settings */}
+      <div>
+        {/* Company Info */}
+        <div style={{marginBottom:20,padding:'18px 20px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
+          <div style={{fontSize:12,fontWeight:600,textTransform:'uppercase',opacity:.5,marginBottom:14}}>Company Information</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+            {[['company_name','Company Name'],['company_email','Company Email'],['company_phone','Phone'],['company_address','Address']].map(([key,label])=>(
+              <div key={key} className="form-group" style={{margin:0}}>
+                <label className="form-label">{label}</label>
+                <input value={emailTemplate[key]||''} onChange={e=>setEmailTemplate(t=>({...t,[key]:e.target.value}))} className="form-input" placeholder={label}/>
+              </div>
+            ))}
           </div>
-
-          {/* Quote Template */}
-          <div style={{marginBottom:24,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
-            <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:6}}>Quote Request Email Template</label>
-            <p style={{fontSize:12,opacity:.5,marginBottom:12}}>This is sent to vendors when you click "Send to Vendor" on a quote. The line items table is automatically included.</p>
-            <div className="form-group">
-              <label className="form-label">Opening Message</label>
-              <textarea value={emailTemplate.quote_intro||''} onChange={e=>setEmailTemplate(t=>({...t,quote_intro:e.target.value}))} className="form-input" rows={4} placeholder="e.g. Hi, please provide pricing for the following items..."/>
+          {/* Logo Upload */}
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label">Company Logo</label>
+            <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+              <div style={{flex:1}}>
+                <input value={emailTemplate.logo_url||''} onChange={e=>setEmailTemplate(t=>({...t,logo_url:e.target.value}))} className="form-input" placeholder="https://yoursite.com/logo.png or upload below"/>
+              </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Closing / Footer</label>
-              <textarea value={emailTemplate.quote_footer||''} onChange={e=>setEmailTemplate(t=>({...t,quote_footer:e.target.value}))} className="form-input" rows={3} placeholder="e.g. Please reply with your best pricing and availability..."/>
+            {/* File upload */}
+            <div style={{marginTop:8,display:'flex',alignItems:'center',gap:10}}>
+              <label style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:7,border:'1px solid rgba(255,255,255,.2)',background:'rgba(255,255,255,.05)',cursor:'pointer',fontSize:12,fontWeight:500}}>
+                <Upload size={13}/> Upload JPG/PNG
+                <input type="file" accept="image/jpeg,image/png" style={{display:'none'}} onChange={async e=>{
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  if (file.size > 2*1024*1024) return toast.error('File must be under 2MB');
+                  const reader = new FileReader();
+                  reader.onload = ev => {
+                    const img = new Image();
+                    img.onload = () => {
+                      const canvas = document.createElement('canvas');
+                      const maxW = 400, maxH = 120;
+                      let w = img.width, h = img.height;
+                      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+                      if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+                      canvas.width = w; canvas.height = h;
+                      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                      setEmailTemplate(t=>({...t, logo_url: canvas.toDataURL('image/png')}));
+                      toast.success(`Logo resized to ${w}×${h}px`);
+                    };
+                    img.src = ev.target.result;
+                  };
+                  reader.readAsDataURL(file);
+                }}/>
+              </label>
+              <span style={{fontSize:11,opacity:.4}}>Auto-resized to 400×120px max</span>
             </div>
-            <div style={{padding:'10px 14px',background:'rgba(99,102,241,.06)',borderRadius:8,border:'1px solid rgba(99,102,241,.2)',fontSize:12,opacity:.8}}>
-              <strong>Auto-included:</strong> Your company info · Quote number · Date · Line items table (SKU, Name, Vendor SKU, Qty, Unit Cost)
-            </div>
+            {emailTemplate.logo_url && (
+              <div style={{marginTop:10,padding:10,background:'rgba(255,255,255,.03)',borderRadius:8,border:'1px solid rgba(255,255,255,.08)',display:'inline-block'}}>
+                <img src={emailTemplate.logo_url} alt="Logo" style={{maxHeight:60,maxWidth:200,display:'block'}} onError={e=>e.target.style.display='none'}/>
+              </div>
+            )}
           </div>
-
-          {/* PO Template */}
-          <div style={{marginBottom:32,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
-            <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:6}}>Purchase Order Email Template</label>
-            <p style={{fontSize:12,opacity:.5,marginBottom:12}}>This is sent to vendors when you send a Purchase Order.</p>
-            <div className="form-group">
-              <label className="form-label">Opening Message</label>
-              <textarea value={emailTemplate.po_intro||''} onChange={e=>setEmailTemplate(t=>({...t,po_intro:e.target.value}))} className="form-input" rows={4} placeholder="e.g. Please find our purchase order below..."/>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Closing / Footer</label>
-              <textarea value={emailTemplate.po_footer||''} onChange={e=>setEmailTemplate(t=>({...t,po_footer:e.target.value}))} className="form-input" rows={3} placeholder="e.g. Please confirm receipt and expected delivery date..."/>
-            </div>
-            <div style={{padding:'10px 14px',background:'rgba(99,102,241,.06)',borderRadius:8,border:'1px solid rgba(99,102,241,.2)',fontSize:12,opacity:.8}}>
-              <strong>Auto-included:</strong> Your company info · PO number · Date · Ship-to address · Line items table · Total amount
-            </div>
-          </div>
-
-            {/* Column Visibility */}
-<div style={{marginBottom:24,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
-  <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:6}}>Quote Email — Column Visibility</label>
-  <p style={{fontSize:12,opacity:.5,marginBottom:14}}>Choose which columns appear in the line items table sent to vendors.</p>
-  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-    {[['show_sku','SKU'],['show_name','Product Name'],['show_vendor_sku','Vendor SKU'],['show_quantity','Quantity'],['show_unit_cost','Unit Cost'],['show_barcode','Barcode'],['show_net_terms','Net Terms'],['show_notes','Line Item Notes']].map(([key,label])=>(
-      <label key={key} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(255,255,255,.03)',borderRadius:8,cursor:'pointer',border:'1px solid rgba(255,255,255,.07)'}}>
-        <input type="checkbox" checked={emailTemplate[key]!==false} onChange={e=>setEmailTemplate(t=>({...t,[key]:e.target.checked}))} style={{width:16,height:16,cursor:'pointer',accentColor:'#6366f1'}}/>
-        <span style={{fontSize:13,fontWeight:500}}>{label}</span>
-      </label>
-    ))}
-  </div>
-</div>
-
-{/* Net Terms */}
-<div style={{marginBottom:32,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
-  <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:6}}>Net Terms</label>
-  <p style={{fontSize:12,opacity:.5,marginBottom:10}}>Payment terms included in emails when Net Terms column is enabled.</p>
-  <input value={emailTemplate.net_terms||''} onChange={e=>setEmailTemplate(t=>({...t,net_terms:e.target.value}))} className="form-input" placeholder="e.g. Net 30, Net 15, Due on Receipt"/>
-</div>
-          <button className="btn btn-primary" style={{padding:'12px 28px',fontSize:15}} disabled={savingTemplate} onClick={async()=>{
-            setSavingTemplate(true);
-            try { await api.post('/settings', { key:'email_template', value: emailTemplate }); toast.success('Email templates saved'); }
-            catch(e) { toast.error('Failed to save'); } finally { setSavingTemplate(false); }
-          }}>{savingTemplate?'Saving...':'Save Email Templates'}</button>
         </div>
-      )}
+
+        {/* Quote Settings */}
+        <div style={{marginBottom:20,padding:'18px 20px',background:'rgba(99,102,241,.05)',borderRadius:12,border:'1px solid rgba(99,102,241,.2)'}}>
+          <div style={{fontSize:12,fontWeight:600,textTransform:'uppercase',color:'#818cf8',marginBottom:14,display:'flex',alignItems:'center',gap:6}}>
+            📋 Quote Request Email
+          </div>
+          <div className="form-group">
+            <label className="form-label">Opening Message</label>
+            <textarea value={emailTemplate.quote_intro||''} onChange={e=>setEmailTemplate(t=>({...t,quote_intro:e.target.value}))} className="form-input" rows={3} placeholder="e.g. Hi, please provide pricing for the following items..."/>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Closing / Footer</label>
+            <textarea value={emailTemplate.quote_footer||''} onChange={e=>setEmailTemplate(t=>({...t,quote_footer:e.target.value}))} className="form-input" rows={2} placeholder="e.g. Please reply with your best pricing..."/>
+          </div>
+          <div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',opacity:.5,marginBottom:10}}>Quote Columns</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+            {[['show_sku','SKU'],['show_name','Product Name'],['show_vendor_sku','Vendor SKU'],['show_barcode','Barcode'],['show_quantity','Quantity'],['show_unit_cost','Unit Cost'],['show_net_terms','Net Terms'],['show_notes','Line Notes']].map(([key,label])=>(
+              <label key={key} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:'rgba(255,255,255,.03)',borderRadius:6,cursor:'pointer',fontSize:12}}>
+                <input type="checkbox" checked={emailTemplate[key]!==false} onChange={e=>setEmailTemplate(t=>({...t,[key]:e.target.checked}))} style={{accentColor:'#6366f1',cursor:'pointer'}}/>
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* PO Settings */}
+        <div style={{marginBottom:20,padding:'18px 20px',background:'rgba(16,185,129,.05)',borderRadius:12,border:'1px solid rgba(16,185,129,.2)'}}>
+          <div style={{fontSize:12,fontWeight:600,textTransform:'uppercase',color:'#10b981',marginBottom:14,display:'flex',alignItems:'center',gap:6}}>
+            🧾 Purchase Order Email
+          </div>
+          <div className="form-group">
+            <label className="form-label">Opening Message</label>
+            <textarea value={emailTemplate.po_intro||''} onChange={e=>setEmailTemplate(t=>({...t,po_intro:e.target.value}))} className="form-input" rows={3} placeholder="e.g. Please find our purchase order below..."/>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Closing / Footer</label>
+            <textarea value={emailTemplate.po_footer||''} onChange={e=>setEmailTemplate(t=>({...t,po_footer:e.target.value}))} className="form-input" rows={2} placeholder="e.g. Please confirm receipt and expected delivery date..."/>
+          </div>
+          <div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',opacity:.5,marginBottom:10}}>PO Columns</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+            {[['po_show_sku','SKU'],['po_show_name','Product Name'],['po_show_vendor_sku','Vendor SKU'],['po_show_barcode','Barcode'],['po_show_quantity','Quantity'],['po_show_unit_cost','Unit Cost'],['po_show_net_terms','Net Terms'],['po_show_notes','Line Notes']].map(([key,label])=>(
+              <label key={key} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:'rgba(255,255,255,.03)',borderRadius:6,cursor:'pointer',fontSize:12}}>
+                <input type="checkbox" checked={emailTemplate[key]!==false} onChange={e=>setEmailTemplate(t=>({...t,[key]:e.target.checked}))} style={{accentColor:'#10b981',cursor:'pointer'}}/>
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <button className="btn btn-primary" style={{padding:'12px 28px',fontSize:15,width:'100%'}} disabled={savingTemplate} onClick={async()=>{
+          setSavingTemplate(true);
+          try { await api.post('/settings', { key:'email_template', value: emailTemplate }); toast.success('Email templates saved'); }
+          catch(e) { toast.error('Failed to save'); } finally { setSavingTemplate(false); }
+        }}>{savingTemplate?'Saving...':'Save Email Templates'}</button>
+      </div>
+
+      {/* RIGHT COLUMN — Live Preview */}
+      <div style={{position:'sticky',top:20}}>
+        <div style={{fontSize:12,fontWeight:600,textTransform:'uppercase',opacity:.5,marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+          Preview
+          <div style={{display:'flex',gap:4}}>
+            {['quote','po'].map(t=>(
+              <button key={t} onClick={()=>setPreviewType(t)}
+                style={{padding:'3px 10px',borderRadius:5,border:`1px solid ${previewType===t?'#6366f1':'rgba(255,255,255,.15)'}`,background:previewType===t?'rgba(99,102,241,.15)':'none',cursor:'pointer',fontSize:11,color:previewType===t?'#818cf8':'inherit',fontWeight:previewType===t?600:400}}>
+                {t==='quote'?'Quote':'PO'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{background:'#fff',borderRadius:10,overflow:'hidden',border:'1px solid rgba(255,255,255,.1)',maxHeight:600,overflowY:'auto'}}>
+          <div style={{fontFamily:'Arial,sans-serif',padding:24,color:'#1f2937',fontSize:13}}>
+            {/* Logo */}
+            {emailTemplate.logo_url && <img src={emailTemplate.logo_url} alt="Logo" style={{maxHeight:60,maxWidth:200,marginBottom:16,display:'block'}} onError={e=>e.target.style.display='none'}/>}
+            {/* Company info */}
+            <div style={{marginBottom:16,fontSize:12,color:'#6b7280'}}>
+              {emailTemplate.company_name&&<div style={{fontWeight:700,color:'#1f2937'}}>{emailTemplate.company_name}</div>}
+              {emailTemplate.company_email&&<div>{emailTemplate.company_email}</div>}
+              {emailTemplate.company_phone&&<div>{emailTemplate.company_phone}</div>}
+              {emailTemplate.company_address&&<div>{emailTemplate.company_address}</div>}
+            </div>
+            <h2 style={{color:'#1f2937',fontSize:18,marginBottom:4}}>{previewType==='quote'?'Quote Request: QR-1234567890':'Purchase Order: PO-1234567890'}</h2>
+            <p style={{color:'#6b7280',fontSize:12,marginBottom:12}}>Date: {new Date().toLocaleDateString()}</p>
+            {previewType==='quote'&&emailTemplate.quote_intro&&<p style={{marginBottom:12}}>{emailTemplate.quote_intro}</p>}
+            {previewType==='po'&&emailTemplate.po_intro&&<p style={{marginBottom:12}}>{emailTemplate.po_intro}</p>}
+            {/* Sample table */}
+            <table style={{width:'100%',borderCollapse:'collapse',marginBottom:16,fontSize:12}}>
+              <thead>
+                <tr style={{background:'#f3f4f6'}}>
+                  {(previewType==='quote'?[
+                    ['show_sku','SKU'],['show_name','Product Name'],['show_vendor_sku','Vendor SKU'],
+                    ['show_barcode','Barcode'],['show_quantity','Qty'],['show_unit_cost','Unit Cost'],
+                    ['show_net_terms','Net Terms'],['show_notes','Notes']
+                  ]:[
+                    ['po_show_sku','SKU'],['po_show_name','Product Name'],['po_show_vendor_sku','Vendor SKU'],
+                    ['po_show_barcode','Barcode'],['po_show_quantity','Qty'],['po_show_unit_cost','Unit Cost'],
+                    ['po_show_net_terms','Net Terms'],['po_show_notes','Notes']
+                  ]).filter(([key])=>emailTemplate[key]!==false).map(([,label])=>(
+                    <th key={label} style={{padding:'6px 8px',textAlign:'left',border:'1px solid #e5e7eb',fontWeight:600}}>{label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[{sku:'SKU-001',name:'Sample Product',vendor_sku:'V-001',barcode:'123456789',quantity:5,unit_cost:'$24.99',net_terms:'Net 30',notes:''}].map((item,i)=>(
+                  <tr key={i}>
+                    {(previewType==='quote'?[
+                      ['show_sku',item.sku],['show_name',item.name],['show_vendor_sku',item.vendor_sku],
+                      ['show_barcode',item.barcode],['show_quantity',item.quantity],['show_unit_cost',item.unit_cost],
+                      ['show_net_terms',item.net_terms],['show_notes',item.notes]
+                    ]:[
+                      ['po_show_sku',item.sku],['po_show_name',item.name],['po_show_vendor_sku',item.vendor_sku],
+                      ['po_show_barcode',item.barcode],['po_show_quantity',item.quantity],['po_show_unit_cost',item.unit_cost],
+                      ['po_show_net_terms',item.net_terms],['po_show_notes',item.notes]
+                    ]).filter(([key])=>emailTemplate[key]!==false).map(([,val],j)=>(
+                      <td key={j} style={{padding:'6px 8px',border:'1px solid #e5e7eb'}}>{val}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {previewType==='quote'&&emailTemplate.quote_footer&&<p style={{fontSize:12,color:'#6b7280'}}>{emailTemplate.quote_footer}</p>}
+            {previewType==='po'&&emailTemplate.po_footer&&<p style={{fontSize:12,color:'#6b7280'}}>{emailTemplate.po_footer}</p>}
+            <hr style={{border:'none',borderTop:'1px solid #e5e7eb',margin:'16px 0'}}/>
+            <p style={{fontSize:11,color:'#9ca3af'}}>Reply to this email to respond. Reference: {previewType==='quote'?'QR-1234567890':'PO-1234567890'}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
       {tab==='sync'&&(
         <div style={{maxWidth:700}}>
