@@ -93,7 +93,8 @@ router.post('/send-quote', auth, async (req, res) => {
     const itemsRes = await pool.query('SELECT * FROM quote_items WHERE quote_id = $1', [quote_id]);
     const items = itemsRes.rows;
     const tmplRes = await pool.query("SELECT value FROM settings WHERE key='email_template'");
-    const tmpl = tmplRes.rows[0]?.value || {};
+    let tmpl = {};
+    try { tmpl = tmplRes.rows[0] ? (typeof tmplRes.rows[0].value === 'string' ? JSON.parse(tmplRes.rows[0].value) : tmplRes.rows[0].value) : {}; } catch(e) { tmpl = {}; }
     const vendorEmail = quote.sales_rep_email || quote.vendor_email;
     if (!vendorEmail) return res.status(400).json({ error: 'Vendor has no email address' });
     const itemsTable = `<table style="width:100%;border-collapse:collapse;margin:16px 0"><thead><tr style="background:#f3f4f6"><th style="padding:8px;text-align:left;border:1px solid #e5e7eb">SKU</th><th style="padding:8px;text-align:left;border:1px solid #e5e7eb">Product</th><th style="padding:8px;text-align:left;border:1px solid #e5e7eb">Vendor SKU</th><th style="padding:8px;text-align:center;border:1px solid #e5e7eb">Qty</th><th style="padding:8px;text-align:right;border:1px solid #e5e7eb">Unit Cost</th></tr></thead><tbody>${items.map(i=>`<tr><td style="padding:8px;border:1px solid #e5e7eb">${i.sku||''}</td><td style="padding:8px;border:1px solid #e5e7eb">${i.name||''}</td><td style="padding:8px;border:1px solid #e5e7eb">${i.vendor_sku||''}</td><td style="padding:8px;text-align:center;border:1px solid #e5e7eb">${i.quantity}</td><td style="padding:8px;text-align:right;border:1px solid #e5e7eb">${i.unit_cost?'$'+parseFloat(i.unit_cost).toFixed(2):'TBD'}</td></tr>`).join('')}</tbody></table>`;
@@ -131,7 +132,8 @@ router.post('/send-quote-reply', auth, async (req, res) => {
     const vendorEmail = quote.sales_rep_email || quote.vendor_email;
     if (!vendorEmail) return res.status(400).json({ error: 'Vendor has no email' });
     const tmplRes = await pool.query("SELECT value FROM settings WHERE key='email_template'");
-    const tmpl = tmplRes.rows[0]?.value || {};
+    let tmpl = {};
+    try { tmpl = tmplRes.rows[0] ? (typeof tmplRes.rows[0].value === 'string' ? JSON.parse(tmplRes.rows[0].value) : tmplRes.rows[0].value) : {}; } catch(e) { tmpl = {}; }
     const sgMail = require('@sendgrid/mail');
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
     await sgMail.send({
@@ -161,7 +163,8 @@ router.post('/send-po', auth, async (req, res) => {
     const vendorEmail = po.sales_rep_email || po.vendor_email;
     if (!vendorEmail) return res.status(400).json({ error: 'Vendor has no email address' });
     const tmplRes = await pool.query("SELECT value FROM settings WHERE key='email_template'");
-    const tmpl = tmplRes.rows[0]?.value || {};
+    let tmpl = {};
+    try { tmpl = tmplRes.rows[0] ? (typeof tmplRes.rows[0].value === 'string' ? JSON.parse(tmplRes.rows[0].value) : tmplRes.rows[0].value) : {}; } catch(e) { tmpl = {}; }
     const sgMail = require('@sendgrid/mail');
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
     await sgMail.send({
