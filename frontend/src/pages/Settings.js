@@ -31,7 +31,7 @@ const PRESET_COLORS = ['#6366f1','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef444
 export default function Settings() {
   const [general, setGeneral] = useState({ cost_update_mode:'auto', cost_calculation_method:'1', cost_avg_days:'30', cost_avg_type:'cost', archive_sync:'both', shopify_push_mode:'manual', ticket_email:'', rma_status_colors:'{}', bom_qty_mode:'whole' });
   const [savingGeneral, setSavingGeneral] = useState(false);
-  const [emailTemplate, setEmailTemplate] = useState({ company_name:'', company_email:'', company_phone:'', company_address:'', logo_url:'', quote_intro:'', quote_footer:'', po_intro:'', po_footer:'' });
+ const [emailTemplate, setEmailTemplate] = useState({ company_name:'', company_email:'', company_phone:'', company_address:'', logo_url:'', quote_intro:'', quote_footer:'', po_intro:'', po_footer:'', show_sku:true, show_name:true, show_vendor_sku:true, show_quantity:true, show_unit_cost:true, show_barcode:false, show_net_terms:false, show_notes:false, net_terms:'' });
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [draggingId, setDraggingId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
