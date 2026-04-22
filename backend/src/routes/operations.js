@@ -286,4 +286,39 @@ paymentRouter.post('/', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Get payments
+paymentRouter.get('/', async (req, res) => {
+    try {
+          const { po_id, invoice_id } = req.query;
+          let query = 'SELECT * FROM payments WHERE 1=1';
+          const params = [];
+          if (po_id) { params.push(po_id); query += ` AND po_id=$${params.length}`; }
+          if (invoice_id) { params.push(invoice_id); query += ` AND invoice_id=$${params.length}`; }
+          query += ' ORDER BY payment_date DESC, created_at DESC';
+          const result = await pool.query(query, params);
+          res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Delete a payment and recalculate invoice status
+paymentRouter.delete('/:id', async (req, res) => {
+    try {
+          const payment = await pool.query('SELECT * FROM payments WHERE id=$1', [req.params.id]);
+          if (!payment.rows.length) return res.status(404).json({ error: 'Not found' });
+          const { invoice_id } = payment.rows[0];
+          await pool.query('DELETE FROM payments WHERE id=$1', [req.params.id]);
+          if (invoice_id) {
+                  const inv = await pool.query('SELECT amount FROM invoices WHERE id=$1', [invoice_id]);
+                  const paid = await pool.query('SELECT COALESCE(SUM(amount),0) as total FROM payments WHERE invoice_id=$1', [invoice_id]);
+                  const totalPaid = parseFloat(paid.rows[0].total);
+                  const invoiceAmount = parseFloat(inv.rows[0]?.amount||0);
+                  let newStatus = 'unpaid';
+                  if (totalPaid >= invoiceAmount) newStatus = 'paid';
+                  else if (totalPaid > 0) newStatus = 'partial';
+                  await pool.query('UPDATE invoices SET status=$1, amount_paid=$2, updated_at=NOW() WHERE id=$3', [newStatus, totalPaid, invoice_id]);
+          }
+          res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = { rmaRouter, bomRouter, mfgRouter, invoiceRouter, paymentRouter };
