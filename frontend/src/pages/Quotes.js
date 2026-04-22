@@ -382,6 +382,8 @@ export default function Quotes() {
         .btn-icon.danger:hover{color:#ef4444}
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @media(max-width:600px){.form-grid-2{grid-template-columns:1fr}}
+        input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+        input[type=number]{-moz-appearance:textfield}
       `}</style>
     </div>
   );
