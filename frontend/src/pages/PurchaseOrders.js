@@ -343,30 +343,12 @@ export default function PurchaseOrders() {
 
                         {/* Qty summary */}
                         <div style={{ display:'flex', gap:12, alignItems:'center', flexShrink:0 }}>
-                          <div style={{ textAlign:'center' }}>
-                            <div style={{ fontSize:10, opacity:.4, textTransform:'uppercase', marginBottom:2 }}>Ordered</div>
-                            <div style={{ fontWeight:700, fontSize:16 }}>{ordered}</div>
-                          </div>
-                          <div style={{ textAlign:'center' }}>
-                            <div style={{ fontSize:10, opacity:.4, textTransform:'uppercase', marginBottom:2 }}>Received</div>
-                            {editingReceived === item.id ? (
-                              <div style={{display:'flex',gap:3,alignItems:'center'}}>
-                                <input type="number" min="0" max={ordered} value={editReceivedVal} onChange={e=>setEditReceivedVal(e.target.value)}
-                                  style={{width:50,padding:'2px 4px',borderRadius:4,border:'1px solid rgba(255,255,255,.2)',background:'rgba(255,255,255,.08)',color:'inherit',fontSize:13,textAlign:'center'}}
-                                  autoFocus onKeyDown={e=>{if(e.key==='Enter')saveEditReceived(item.id);if(e.key==='Escape')setEditingReceived(null);}}/>
-                                <button onClick={()=>saveEditReceived(item.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#10b981',padding:1}}><Check size={12}/></button>
-                                <button onClick={()=>setEditingReceived(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',padding:1}}><X size={12}/></button>
-                              </div>
-                            ) : (
-                              <div style={{display:'flex',alignItems:'center',gap:4}}>
-                                <span style={{ fontWeight:700, fontSize:16, color: fullyReceived ? '#10b981' : received > 0 ? '#f59e0b' : 'inherit' }}>{received}</span>
-                                <button onClick={()=>{setEditingReceived(item.id);setEditReceivedVal(received);}} style={{background:'none',border:'none',cursor:'pointer',opacity:.3,padding:1,color:'inherit'}}><Edit2 size={10}/></button>
-                              </div>
-                            )}
-                          </div>
-                          <div style={{ textAlign:'center' }}>
-                            <div style={{ fontSize:10, opacity:.4, textTransform:'uppercase', marginBottom:2 }}>Remaining</div>
-                            <div style={{ fontWeight:700, fontSize:16, color: remaining > 0 ? '#ef4444' : '#10b981' }}>{remaining}</div>
+                          <div style={{ textAlign:'right', fontSize:12 }}>
+                            <div style={{ fontWeight:700, fontSize:18 }}>
+                              <span style={{ color: fullyReceived ? '#10b981' : received > 0 ? '#f59e0b' : 'inherit' }}>{received}</span>
+                              <span style={{ opacity:.4 }}> / {ordered}</span>
+                            </div>
+                            <div style={{ opacity:.4, fontSize:11 }}>received</div>
                           </div>
                           {/* Unit Cost — editable */}
                           <div style={{ textAlign:'center' }}>
@@ -396,17 +378,33 @@ export default function PurchaseOrders() {
                         <div style={{ width:`${pct}%`, height:'100%', background: fullyReceived?'#10b981':pending>0?'#6366f1':'#3b82f6', borderRadius:2, transition:'width .3s' }}/>
                       </div>
 
-                      {/* Pending indicator + manual receive controls */}
+                      {/* Receive controls */}
                       {!fullyReceived && detail.status !== 'cancelled' && (
-                        <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:4, flexWrap:'wrap' }}>
+                        <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:8, flexWrap:'wrap' }}>
                           {pending > 0 && (
                             <span style={{fontSize:12,padding:'2px 8px',borderRadius:6,background:'rgba(99,102,241,.15)',color:'#818cf8',fontWeight:600}}>
                               +{pending} staged
                             </span>
                           )}
-                          <input type="number" min="0" max={remaining}
+                          <input type="number" min="1" max={remaining}
                             value={pending||''} onChange={e => updatePending(item.id, e.target.value)}
-                            className="form-input" style={{ width:70, padding:'4px 8px', fontSize:12 }} placeholder={`Max ${remaining}`}/>
+                            className="form-input" style={{ width:70, padding:'4px 8px', fontSize:12 }} placeholder="Qty"/>
+                          <button className="btn btn-secondary" style={{ fontSize:12, padding:'4px 12px' }}
+                            onClick={() => { if (!pendingReceive[item.id]) return toast.error('Enter a quantity'); finalizeReceive(); }}>
+                            Receive
+                          </button>
+                          <button onClick={async () => {
+                            if (!window.confirm('Unreceive 1 unit?')) return;
+                            if (received <= 0) return toast.error('Nothing to unreceive');
+                            try {
+                              await api.put(`/purchase-orders/${selectedPO.id}/item/${item.id}`, { quantity_received: Math.max(0, received - 1) });
+                              await api.post(`/purchase-orders/${selectedPO.id}/notes`, { note: `Unreceived 1x ${item.sku} — ${item.item_name||item.name}`, note_type: 'receive' });
+                              toast.success('Unreceived 1 unit'); await refreshDetail();
+                            } catch(e) { toast.error('Failed'); }
+                          }} style={{ fontSize:12, padding:'4px 10px', borderRadius:6, border:'1px solid rgba(245,158,11,.4)', background:'none', cursor:'pointer', color:'#f59e0b' }}
+                            title="Remove 1 received unit">
+                            Unreceive
+                          </button>
                           <button onClick={() => { setRejectModal(item); setRejectQty(1); setRejectNote(''); }}
                             style={{ fontSize:12, padding:'4px 10px', borderRadius:6, border:'1px solid rgba(239,68,68,0.4)', background:'none', cursor:'pointer', color:'#ef4444' }}>
                             Reject
