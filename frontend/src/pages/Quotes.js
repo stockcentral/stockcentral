@@ -245,7 +245,16 @@ export default function Quotes() {
                 <tr key={q.id} onClick={()=>openQuote(q)} style={{cursor:'pointer'}}
                   onMouseOver={e=>e.currentTarget.style.background='rgba(255,255,255,.04)'}
                   onMouseOut={e=>e.currentTarget.style.background=''}>
-                  <td><span style={{color:'#6366f1',fontWeight:600}}>{q.quote_number}</span></td>
+                  <td>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{color:'#6366f1',fontWeight:600}}>{q.quote_number}</span>
+                      {parseInt(q.vendor_reply_count||0) > 0 && (
+                        <span style={{fontSize:10,padding:'2px 7px',borderRadius:10,background:'rgba(245,158,11,.15)',color:'#f59e0b',fontWeight:700,border:'1px solid rgba(245,158,11,.3)',display:'flex',alignItems:'center',gap:3}}>
+                          ✉ {q.vendor_reply_count} {parseInt(q.vendor_reply_count)===1?'reply':'replies'}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td>{q.vendor_name||'—'}</td>
                   <td><span style={{color:STATUS_COLORS[q.status]||'#6b7280',fontWeight:600,fontSize:12,padding:'2px 8px',borderRadius:10,background:`${STATUS_COLORS[q.status]||'#6b7280'}22`}}>{q.status}</span></td>
                   <td style={{fontSize:12,opacity:.7}}>{q.item_count||0} items</td>
