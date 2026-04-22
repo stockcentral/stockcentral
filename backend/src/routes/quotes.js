@@ -95,7 +95,7 @@ router.post('/:id/convert', async (req, res) => {
     const po = await pool.query(
       `INSERT INTO purchase_orders (po_number, quote_id, vendor_id, notes, shipping_cost, vendor_credit, subtotal, total)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [poNumber, q.id, q.vendor_id, q.notes, q.shipping_cost||0, q.vendor_credit||0, q.subtotal||0, q.total_amount||0]
+      [poNumber, q.id, q.vendor_id, q.notes, parseFloat(q.shipping_cost)||0, parseFloat(q.vendor_credit)||0, parseFloat(q.subtotal)||0, parseFloat(q.total)||0]
     );
     for (const item of items.rows) {
       await pool.query(
