@@ -51,6 +51,13 @@ export default function PurchaseOrders() {
   const [editingReceived, setEditingReceived] = useState(null);
   const [editReceivedVal, setEditReceivedVal] = useState('');
   const scanRef = useRef();
+  // Invoices & payments
+  const [invoices, setInvoices] = useState([]);
+  const [showAddInvoice, setShowAddInvoice] = useState(false);
+  const [showAddPayment, setShowAddPayment] = useState(null); // invoice id
+  const [invoiceForm, setInvoiceForm] = useState({ invoice_number:'', amount:'', due_date:'', notes:'', billing_type:'full' });
+  const [paymentForm, setPaymentForm] = useState({ amount:'', payment_method:'', reference_number:'', payment_date:'', notes:'' });
+  const [invoicePayments, setInvoicePayments] = useState({}); // { invoiceId: [payments] }
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -65,8 +72,15 @@ export default function PurchaseOrders() {
 
   const openPO = async (po) => {
     setSelectedPO(po); setDetail(null); setLoadingDetail(true);
-    setPendingReceive({}); setScanSku(''); setNotesOpen(false);
-    try { const r = await api.get(`/purchase-orders/${po.id}`); setDetail(r.data); }
+    setPendingReceive({}); setScanSku(''); setNotesOpen(false); setInvoices([]); setShowAddInvoice(false); setShowAddPayment(null);
+    try {
+      const [r, invR] = await Promise.all([
+        api.get(`/purchase-orders/${po.id}`),
+        api.get(`/invoices/po/${po.id}`).catch(()=>({data:[]}))
+      ]);
+      setDetail(r.data);
+      setInvoices(invR.data || []);
+    }
     catch(e) { toast.error('Failed to load PO details'); }
     finally { setLoadingDetail(false); }
   };
@@ -75,9 +89,54 @@ export default function PurchaseOrders() {
 
   const refreshDetail = async () => {
     if (!selectedPO) return;
-    const r = await api.get(`/purchase-orders/${selectedPO.id}`);
+    const [r, invR] = await Promise.all([
+      api.get(`/purchase-orders/${selectedPO.id}`),
+      api.get(`/invoices/po/${selectedPO.id}`).catch(()=>({data:[]}))
+    ]);
     setDetail(r.data);
+    setInvoices(invR.data || []);
     setPOs(prev => prev.map(p => p.id === selectedPO.id ? { ...p, ...r.data } : p));
+  };
+
+  const loadPayments = async (invoiceId) => {
+    try {
+      const r = await api.get(`/payments?invoice_id=${invoiceId}`);
+      setInvoicePayments(p => ({...p, [invoiceId]: r.data}));
+    } catch(e) {}
+  };
+
+  const addInvoice = async () => {
+    if (!invoiceForm.invoice_number.trim()) return toast.error('Invoice number required');
+    if (!invoiceForm.amount) return toast.error('Amount required');
+    try {
+      await api.post('/invoices', { ...invoiceForm, po_id: selectedPO.id, amount: parseFloat(invoiceForm.amount) });
+      toast.success('Invoice added');
+      setShowAddInvoice(false);
+      setInvoiceForm({ invoice_number:'', amount:'', due_date:'', notes:'', billing_type:'full' });
+      await refreshDetail();
+    } catch(e) { toast.error('Failed to add invoice'); }
+  };
+
+  const addPayment = async (invoiceId) => {
+    if (!paymentForm.amount) return toast.error('Amount required');
+    try {
+      await api.post('/payments', { ...paymentForm, po_id: selectedPO.id, invoice_id: invoiceId, amount: parseFloat(paymentForm.amount) });
+      toast.success('Payment recorded');
+      setShowAddPayment(null);
+      setPaymentForm({ amount:'', payment_method:'', reference_number:'', payment_date:'', notes:'' });
+      await refreshDetail();
+      await loadPayments(invoiceId);
+    } catch(e) { toast.error('Failed to record payment'); }
+  };
+
+  const deletePayment = async (paymentId, invoiceId) => {
+    if (!window.confirm('Delete this payment?')) return;
+    try {
+      await api.delete(`/payments/${paymentId}`);
+      toast.success('Payment deleted');
+      await refreshDetail();
+      await loadPayments(invoiceId);
+    } catch(e) { toast.error('Failed'); }
   };
 
   // Scan adds to pending (not yet committed)
@@ -415,6 +474,179 @@ export default function PurchaseOrders() {
                     </div>
                   );
                 })}
+
+                {/* Invoices & Payments */}
+                <div style={{marginTop:16,background:'rgba(255,255,255,.03)',borderRadius:10,border:'1px solid rgba(255,255,255,.07)'}}>
+                  <div style={{padding:'12px 16px',borderBottom:'1px solid rgba(255,255,255,.07)',display:'flex',alignItems:'center',justifyContent:'space-between',background:'rgba(255,255,255,.02)',borderRadius:'10px 10px 0 0'}}>
+                    <span style={{fontWeight:600,fontSize:13,display:'flex',alignItems:'center',gap:8}}>
+                      💳 Invoices & Payments
+                      {invoices.length > 0 && (
+                        <span style={{fontSize:11,opacity:.5,fontWeight:400}}>
+                          {invoices.filter(i=>i.status==='paid').length}/{invoices.length} paid
+                        </span>
+                      )}
+                    </span>
+                    <button onClick={()=>setShowAddInvoice(s=>!s)} className="btn btn-secondary" style={{fontSize:11,padding:'3px 10px'}}>
+                      + Add Invoice
+                    </button>
+                  </div>
+
+                  {/* Add Invoice Form */}
+                  {showAddInvoice && (
+                    <div style={{padding:'14px 16px',borderBottom:'1px solid rgba(255,255,255,.07)',background:'rgba(99,102,241,.04)'}}>
+                      <div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',opacity:.5,marginBottom:10}}>New Invoice</div>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:8}}>
+                        <div>
+                          <label style={{fontSize:11,opacity:.5,display:'block',marginBottom:3}}>Invoice # *</label>
+                          <input value={invoiceForm.invoice_number} onChange={e=>setInvoiceForm(f=>({...f,invoice_number:e.target.value}))} className="form-input" style={{padding:'6px 8px',fontSize:12}} placeholder="INV-001"/>
+                        </div>
+                        <div>
+                          <label style={{fontSize:11,opacity:.5,display:'block',marginBottom:3}}>Amount *</label>
+                          <input type="number" step="0.01" value={invoiceForm.amount} onChange={e=>setInvoiceForm(f=>({...f,amount:e.target.value}))} className="form-input" style={{padding:'6px 8px',fontSize:12}} placeholder="0.00"/>
+                        </div>
+                        <div>
+                          <label style={{fontSize:11,opacity:.5,display:'block',marginBottom:3}}>Due Date</label>
+                          <input type="date" value={invoiceForm.due_date} onChange={e=>setInvoiceForm(f=>({...f,due_date:e.target.value}))} className="form-input" style={{padding:'6px 8px',fontSize:12}}/>
+                        </div>
+                      </div>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
+                        <div>
+                          <label style={{fontSize:11,opacity:.5,display:'block',marginBottom:3}}>Billing Type</label>
+                          <select value={invoiceForm.billing_type} onChange={e=>setInvoiceForm(f=>({...f,billing_type:e.target.value}))} className="form-input" style={{padding:'6px 8px',fontSize:12}}>
+                            <option value="full">Full Invoice</option>
+                            <option value="partial">Partial Invoice</option>
+                            <option value="deposit">Deposit</option>
+                            <option value="final">Final Payment</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{fontSize:11,opacity:.5,display:'block',marginBottom:3}}>Notes</label>
+                          <input value={invoiceForm.notes} onChange={e=>setInvoiceForm(f=>({...f,notes:e.target.value}))} className="form-input" style={{padding:'6px 8px',fontSize:12}} placeholder="Optional"/>
+                        </div>
+                      </div>
+                      <div style={{display:'flex',gap:6}}>
+                        <button onClick={addInvoice} className="btn btn-primary" style={{fontSize:12,padding:'5px 14px'}}>Save Invoice</button>
+                        <button onClick={()=>setShowAddInvoice(false)} className="btn btn-ghost" style={{fontSize:12,padding:'5px 14px'}}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Invoice List */}
+                  <div style={{padding:'10px 16px'}}>
+                    {invoices.length === 0 ? (
+                      <div style={{opacity:.4,fontSize:12,fontStyle:'italic',padding:'8px 0'}}>No invoices yet. Add one to track billing.</div>
+                    ) : invoices.map(inv => {
+                      const paid = parseFloat(inv.amount_paid||0);
+                      const total = parseFloat(inv.amount||0);
+                      const due = Math.max(0, total - paid);
+                      const pct = total > 0 ? Math.min(100, Math.round(paid/total*100)) : 0;
+                      const statusColor = inv.status==='paid'?'#10b981':inv.status==='partial'?'#f59e0b':'#ef4444';
+                      const payments = invoicePayments[inv.id] || [];
+                      return (
+                        <div key={inv.id} style={{marginBottom:12,padding:'12px 14px',background:'rgba(255,255,255,.03)',borderRadius:8,border:'1px solid rgba(255,255,255,.07)'}}>
+                          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8,flexWrap:'wrap',gap:6}}>
+                            <div style={{display:'flex',alignItems:'center',gap:10}}>
+                              <span style={{fontWeight:700,fontSize:13,color:'#6366f1'}}>{inv.invoice_number}</span>
+                              <span style={{fontSize:10,padding:'2px 7px',borderRadius:8,background:`${statusColor}22`,color:statusColor,fontWeight:700,textTransform:'uppercase'}}>{inv.status}</span>
+                              {inv.billing_type && inv.billing_type !== 'full' && (
+                                <span style={{fontSize:10,padding:'2px 7px',borderRadius:8,background:'rgba(99,102,241,.15)',color:'#818cf8',fontWeight:600}}>{inv.billing_type}</span>
+                              )}
+                            </div>
+                            <div style={{display:'flex',alignItems:'center',gap:10,fontSize:12}}>
+                              <span style={{opacity:.5}}>Total: <strong style={{opacity:1}}>${total.toFixed(2)}</strong></span>
+                              <span style={{opacity:.5}}>Paid: <strong style={{color:'#10b981'}}>${paid.toFixed(2)}</strong></span>
+                              {due > 0 && <span style={{opacity:.5}}>Due: <strong style={{color:'#ef4444'}}>${due.toFixed(2)}</strong></span>}
+                              {inv.due_date && <span style={{opacity:.4}}>Due {new Date(inv.due_date).toLocaleDateString()}</span>}
+                            </div>
+                          </div>
+                          {/* Payment progress bar */}
+                          <div style={{height:4,background:'rgba(255,255,255,.08)',borderRadius:2,marginBottom:8}}>
+                            <div style={{width:`${pct}%`,height:'100%',background:pct===100?'#10b981':'#3b82f6',borderRadius:2,transition:'width .3s'}}/>
+                          </div>
+                          {/* Payment history toggle */}
+                          <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+                            <button onClick={()=>{loadPayments(inv.id);}} className="btn btn-ghost" style={{fontSize:11,padding:'2px 8px'}}>
+                              {payments.length > 0 ? `${payments.length} payment${payments.length!==1?'s':''}` : 'View payments'}
+                            </button>
+                            {inv.status !== 'paid' && (
+                              <button onClick={()=>{ setShowAddPayment(inv.id); setPaymentForm({amount:due.toFixed(2),payment_method:'',reference_number:'',payment_date:new Date().toISOString().split('T')[0],notes:''}); }}
+                                className="btn btn-secondary" style={{fontSize:11,padding:'2px 10px'}}>
+                                + Add Payment
+                              </button>
+                            )}
+                          </div>
+                          {/* Add Payment Form */}
+                          {showAddPayment === inv.id && (
+                            <div style={{marginTop:10,padding:'10px 12px',background:'rgba(16,185,129,.05)',borderRadius:8,border:'1px solid rgba(16,185,129,.2)'}}>
+                              <div style={{fontSize:11,fontWeight:600,color:'#10b981',marginBottom:8}}>Record Payment</div>
+                              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginBottom:6}}>
+                                <div>
+                                  <label style={{fontSize:10,opacity:.5,display:'block',marginBottom:2}}>Amount *</label>
+                                  <input type="number" step="0.01" value={paymentForm.amount} onChange={e=>setPaymentForm(f=>({...f,amount:e.target.value}))} className="form-input" style={{padding:'5px 7px',fontSize:12}}/>
+                                </div>
+                                <div>
+                                  <label style={{fontSize:10,opacity:.5,display:'block',marginBottom:2}}>Method</label>
+                                  <select value={paymentForm.payment_method} onChange={e=>setPaymentForm(f=>({...f,payment_method:e.target.value}))} className="form-input" style={{padding:'5px 7px',fontSize:12}}>
+                                    <option value="">— Select —</option>
+                                    <option value="ACH">ACH</option>
+                                    <option value="Wire">Wire Transfer</option>
+                                    <option value="Check">Check</option>
+                                    <option value="Credit Card">Credit Card</option>
+                                    <option value="PayPal">PayPal</option>
+                                    <option value="Other">Other</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label style={{fontSize:10,opacity:.5,display:'block',marginBottom:2}}>Date</label>
+                                  <input type="date" value={paymentForm.payment_date} onChange={e=>setPaymentForm(f=>({...f,payment_date:e.target.value}))} className="form-input" style={{padding:'5px 7px',fontSize:12}}/>
+                                </div>
+                              </div>
+                              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
+                                <div>
+                                  <label style={{fontSize:10,opacity:.5,display:'block',marginBottom:2}}>Reference #</label>
+                                  <input value={paymentForm.reference_number} onChange={e=>setPaymentForm(f=>({...f,reference_number:e.target.value}))} className="form-input" style={{padding:'5px 7px',fontSize:12}} placeholder="Check #, transaction ID..."/>
+                                </div>
+                                <div>
+                                  <label style={{fontSize:10,opacity:.5,display:'block',marginBottom:2}}>Notes</label>
+                                  <input value={paymentForm.notes} onChange={e=>setPaymentForm(f=>({...f,notes:e.target.value}))} className="form-input" style={{padding:'5px 7px',fontSize:12}} placeholder="Optional"/>
+                                </div>
+                              </div>
+                              <div style={{display:'flex',gap:6}}>
+                                <button onClick={()=>addPayment(inv.id)} className="btn btn-primary" style={{fontSize:11,padding:'4px 12px',background:'#10b981'}}>Record Payment</button>
+                                <button onClick={()=>setShowAddPayment(null)} className="btn btn-ghost" style={{fontSize:11,padding:'4px 12px'}}>Cancel</button>
+                              </div>
+                            </div>
+                          )}
+                          {/* Payment list */}
+                          {payments.length > 0 && (
+                            <div style={{marginTop:8}}>
+                              {payments.map(p => (
+                                <div key={p.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 8px',background:'rgba(255,255,255,.02)',borderRadius:5,marginBottom:3,fontSize:11}}>
+                                  <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                                    <span style={{fontWeight:700,color:'#10b981'}}>${parseFloat(p.amount).toFixed(2)}</span>
+                                    {p.payment_method && <span style={{opacity:.5}}>{p.payment_method}</span>}
+                                    {p.reference_number && <span style={{opacity:.4,fontFamily:'monospace'}}>#{p.reference_number}</span>}
+                                    <span style={{opacity:.4}}>{p.payment_date ? new Date(p.payment_date).toLocaleDateString() : ''}</span>
+                                  </div>
+                                  <button onClick={()=>deletePayment(p.id, inv.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',opacity:.4,padding:2,fontSize:12}}>×</button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {inv.notes && <div style={{fontSize:11,opacity:.4,marginTop:6,fontStyle:'italic'}}>{inv.notes}</div>}
+                        </div>
+                      );
+                    })}
+                    {/* Summary */}
+                    {invoices.length > 1 && (
+                      <div style={{padding:'8px 0',borderTop:'1px solid rgba(255,255,255,.07)',display:'flex',gap:20,fontSize:12}}>
+                        <span style={{opacity:.5}}>Total Billed: <strong style={{opacity:1}}>${invoices.reduce((s,i)=>s+parseFloat(i.amount||0),0).toFixed(2)}</strong></span>
+                        <span style={{opacity:.5}}>Total Paid: <strong style={{color:'#10b981'}}>${invoices.reduce((s,i)=>s+parseFloat(i.amount_paid||0),0).toFixed(2)}</strong></span>
+                        <span style={{opacity:.5}}>Outstanding: <strong style={{color:'#ef4444'}}>${invoices.reduce((s,i)=>s+Math.max(0,parseFloat(i.amount||0)-parseFloat(i.amount_paid||0)),0).toFixed(2)}</strong></span>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* Notes & Activity — collapsible */}
                 <div style={{ marginTop:20, background:'rgba(255,255,255,.03)', borderRadius:10, border:'1px solid rgba(255,255,255,.07)' }}>
