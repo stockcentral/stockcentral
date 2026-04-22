@@ -90,6 +90,7 @@ router.post('/:id/convert', async (req, res) => {
   try {
     const quote = await pool.query('SELECT * FROM quotes WHERE id = $1', [req.params.id]);
     const items = await pool.query('SELECT * FROM quote_items WHERE quote_id = $1', [req.params.id]);
+    const emails = await pool.query('SELECT * FROM email_log WHERE quote_id = $1 ORDER BY created_at ASC', [req.params.id]).catch(()=>({rows:[]}));
     const q = quote.rows[0];
     const poNumber = `PO-${Date.now()}-${Math.floor(Math.random()*1000)}`;
     const po = await pool.query(
@@ -97,13 +98,35 @@ router.post('/:id/convert', async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
       [poNumber, q.id, q.vendor_id, q.notes, parseFloat(q.shipping_cost)||0, parseFloat(q.vendor_credit)||0, parseFloat(q.subtotal)||0, parseFloat(q.total)||0]
     );
+    const poId = po.rows[0].id;
+    // Copy line items
     for (const item of items.rows) {
       await pool.query(
         `INSERT INTO po_items (po_id, inventory_item_id, sku, name, vendor_sku, quantity_ordered, unit_cost, total_cost)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [po.rows[0].id, item.inventory_item_id, item.sku, item.name, item.vendor_sku, item.quantity, item.unit_cost, item.total_cost]
+        [poId, item.inventory_item_id, item.sku, item.name, item.vendor_sku, item.quantity, item.unit_cost, item.total_cost]
       );
     }
+    // Copy notes from quote
+    if (q.notes) {
+      await pool.query(
+        `INSERT INTO po_notes (po_id, note, note_type) VALUES ($1, $2, 'general')`,
+        [poId, `[From Quote ${q.quote_number}] ${q.notes}`]
+      ).catch(()=>{});
+    }
+    // Copy email correspondence to PO
+    for (const email of emails.rows) {
+      await pool.query(
+        `INSERT INTO email_log (po_id, quote_id, direction, subject, body, from_email, to_email, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [poId, q.id, email.direction, email.subject, email.body, email.from_email, email.to_email, email.created_at]
+      ).catch(()=>{});
+    }
+    // Add a note marking the conversion
+    await pool.query(
+      `INSERT INTO po_notes (po_id, note, note_type) VALUES ($1, $2, 'general')`,
+      [poId, `Converted from quote ${q.quote_number} on ${new Date().toLocaleDateString()}`]
+    ).catch(()=>{});
     await pool.query(`UPDATE quotes SET status='converted', updated_at=NOW() WHERE id=$1`, [req.params.id]);
     res.json(po.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
