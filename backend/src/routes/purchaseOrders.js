@@ -144,6 +144,27 @@ router.post('/:id/notes', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+// Edit individual PO item (unit cost, received qty)
+router.put('/:id/item/:itemId', async (req, res) => {
+  try {
+    const { unit_cost, quantity_received } = req.body;
+    const updates = [];
+    const params = [];
+    if (unit_cost !== undefined) { params.push(parseFloat(unit_cost)||0); updates.push(`unit_cost=$${params.length}`); }
+    if (quantity_received !== undefined) { params.push(parseInt(quantity_received)||0); updates.push(`quantity_received=$${params.length}`); }
+    if (!updates.length) return res.status(400).json({ error: 'Nothing to update' });
+    params.push(req.params.itemId);
+    const result = await pool.query(`UPDATE po_items SET ${updates.join(',')} WHERE id=$${params.length} RETURNING *`, params);
+    // Re-check if fully received
+    const allItems = await pool.query('SELECT * FROM po_items WHERE po_id=$1', [req.params.id]);
+    const allReceived = allItems.rows.every(i => i.quantity_received >= i.quantity_ordered);
+    if (allReceived) {
+      await pool.query(`UPDATE purchase_orders SET status='received', updated_at=NOW() WHERE id=$1`, [req.params.id]);
+    }
+    res.json(result.rows[0]);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
 // Delete PO
 router.delete('/:id', async (req, res) => {
   try {
