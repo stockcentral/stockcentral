@@ -37,7 +37,7 @@ router.post('/', async (req, res) => {
     const quote = await pool.query(
       `INSERT INTO quotes (quote_number, vendor_id, notes, shipping_cost, vendor_credit, subtotal, total, requested_by, shopify_order_ids, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [generateQuoteNumber(), vendor_id, notes||'', shipping_cost||0, vendor_credit||0, subtotal, total, requested_by||null, shopify_order_ids||'', status||'draft']
+      [generateQuoteNumber(), vendor_id||null, notes||'', parseFloat(shipping_cost)||0, parseFloat(vendor_credit)||0, subtotal, total, requested_by||null, shopify_order_ids||'', status||'draft']
     );
     for (const item of items) {
       if (!item.inventory_item_id) continue;
@@ -69,7 +69,7 @@ router.put('/:id', async (req, res) => {
     const result = await pool.query(
       `UPDATE quotes SET vendor_id=$1, status=$2, notes=$3, shipping_cost=$4, vendor_credit=$5,
        subtotal=$6, total=$7, shopify_order_ids=$8, updated_at=NOW() WHERE id=$9 RETURNING *`,
-      [vendor_id, status||'draft', notes||'', shipping_cost||0, vendor_credit||0, subtotal, total, shopify_order_ids||'', req.params.id]
+      [vendor_id||null, status||'draft', notes||'', parseFloat(shipping_cost)||0, parseFloat(vendor_credit)||0, subtotal, total, shopify_order_ids||'', req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
