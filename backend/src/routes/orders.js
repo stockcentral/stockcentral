@@ -114,4 +114,12 @@ router.delete('/:id/notes/:noteId', async (req, res) => {
             } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+// Update order tags
+router.put('/:id/tags', async (req, res) => {
+  try {
+    const { tags } = req.body;
+    await pool.query('UPDATE shopify_orders SET tags=$1 WHERE id=$2', [tags||'', req.params.id]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 module.exports = router;
