@@ -9,7 +9,7 @@ const generateQuoteNumber = () => `QR-${Date.now()}-${Math.floor(Math.random()*1
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT q.*, v.name as vendor_name,
+      SELECT q.*, v.name as vendor_name, q.total as total_amount,
         (SELECT COUNT(*) FROM quote_items WHERE quote_id = q.id) as item_count
       FROM quotes q
       LEFT JOIN vendors v ON q.vendor_id = v.id
@@ -35,7 +35,7 @@ router.post('/', async (req, res) => {
     const subtotal = items.reduce((sum, i) => sum + ((parseFloat(i.unit_cost)||0) * (parseInt(i.quantity)||0)), 0);
     const total = subtotal + (parseFloat(shipping_cost)||0) - (parseFloat(vendor_credit)||0);
     const quote = await pool.query(
-      `INSERT INTO quotes (quote_number, vendor_id, notes, shipping_cost, vendor_credit, subtotal, total_amount, requested_by, shopify_order_ids, status)
+      `INSERT INTO quotes (quote_number, vendor_id, notes, shipping_cost, vendor_credit, subtotal, total, requested_by, shopify_order_ids, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
       [generateQuoteNumber(), vendor_id, notes||'', shipping_cost||0, vendor_credit||0, subtotal, total, requested_by||null, shopify_order_ids||'', status||'draft']
     );
@@ -68,7 +68,7 @@ router.put('/:id', async (req, res) => {
     const total = subtotal + (parseFloat(shipping_cost)||0) - (parseFloat(vendor_credit)||0);
     const result = await pool.query(
       `UPDATE quotes SET vendor_id=$1, status=$2, notes=$3, shipping_cost=$4, vendor_credit=$5,
-       subtotal=$6, total_amount=$7, shopify_order_ids=$8, updated_at=NOW() WHERE id=$9 RETURNING *`,
+       subtotal=$6, total=$7, shopify_order_ids=$8, updated_at=NOW() WHERE id=$9 RETURNING *`,
       [vendor_id, status||'draft', notes||'', shipping_cost||0, vendor_credit||0, subtotal, total, shopify_order_ids||'', req.params.id]
     );
     res.json(result.rows[0]);
