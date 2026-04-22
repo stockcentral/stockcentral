@@ -539,6 +539,26 @@ export default function Settings() {
             </div>
           </div>
 
+            {/* Column Visibility */}
+<div style={{marginBottom:24,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
+  <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:6}}>Quote Email — Column Visibility</label>
+  <p style={{fontSize:12,opacity:.5,marginBottom:14}}>Choose which columns appear in the line items table sent to vendors.</p>
+  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+    {[['show_sku','SKU'],['show_name','Product Name'],['show_vendor_sku','Vendor SKU'],['show_quantity','Quantity'],['show_unit_cost','Unit Cost'],['show_barcode','Barcode'],['show_net_terms','Net Terms'],['show_notes','Line Item Notes']].map(([key,label])=>(
+      <label key={key} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(255,255,255,.03)',borderRadius:8,cursor:'pointer',border:'1px solid rgba(255,255,255,.07)'}}>
+        <input type="checkbox" checked={emailTemplate[key]!==false} onChange={e=>setEmailTemplate(t=>({...t,[key]:e.target.checked}))} style={{width:16,height:16,cursor:'pointer',accentColor:'#6366f1'}}/>
+        <span style={{fontSize:13,fontWeight:500}}>{label}</span>
+      </label>
+    ))}
+  </div>
+</div>
+
+{/* Net Terms */}
+<div style={{marginBottom:32,padding:'20px 24px',background:'rgba(255,255,255,.04)',borderRadius:12,border:'1px solid rgba(255,255,255,.08)'}}>
+  <label style={{display:'block',fontSize:14,fontWeight:600,marginBottom:6}}>Net Terms</label>
+  <p style={{fontSize:12,opacity:.5,marginBottom:10}}>Payment terms included in emails when Net Terms column is enabled.</p>
+  <input value={emailTemplate.net_terms||''} onChange={e=>setEmailTemplate(t=>({...t,net_terms:e.target.value}))} className="form-input" placeholder="e.g. Net 30, Net 15, Due on Receipt"/>
+</div>
           <button className="btn btn-primary" style={{padding:'12px 28px',fontSize:15}} disabled={savingTemplate} onClick={async()=>{
             setSavingTemplate(true);
             try { await api.post('/settings', { key:'email_template', value: emailTemplate }); toast.success('Email templates saved'); }
