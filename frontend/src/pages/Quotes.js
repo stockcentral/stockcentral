@@ -364,6 +364,15 @@ export default function Quotes() {
             </div>
 
             <div className="modal-footer">
+              <div style={{display:'flex',gap:8,flex:1}}>
+                {selected && (
+                  <button className="btn btn-ghost" style={{color:'#ef4444'}} onClick={async()=>{
+                    if(!window.confirm('Delete this quote?'))return;
+                    try{ await api.delete(`/quotes/${selected.id}`); toast.success('Quote deleted'); closeModal(); fetchAll(); }
+                    catch(e){ toast.error('Failed to delete'); }
+                  }}>Delete</button>
+                )}
+              </div>
               <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
               <button className="btn btn-secondary" onClick={()=>handleSave(false)} disabled={saving}>
                 <Save size={14}/> {saving?'Saving...':'Save Draft'}
