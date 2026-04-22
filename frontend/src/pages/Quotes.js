@@ -366,7 +366,7 @@ export default function Quotes() {
                   </div>
 
                   {/* Convert to PO */}
-                  {selected && ['sent','approved'].includes(form.status) && (
+                  {selected && !['converted','rejected'].includes(form.status) && (
                     <div style={{marginTop:16,padding:12,background:'rgba(99,102,241,0.08)',borderRadius:8,border:'1px solid rgba(99,102,241,0.25)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                       <p style={{margin:0,fontSize:13,opacity:.8}}>Ready to create a Purchase Order from this quote?</p>
                       <button className="btn btn-primary" onClick={convertToPO} style={{fontSize:13,whiteSpace:'nowrap',marginLeft:12}}>Convert to PO →</button>
