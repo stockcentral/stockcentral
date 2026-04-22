@@ -127,12 +127,22 @@ bomRouter.post('/', async (req, res) => {
           res.json(result.rows[0]);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 bomRouter.delete('/:id', async (req, res) => {
     try {
           await pool.query('DELETE FROM bom WHERE id=$1', [req.params.id]);
           res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+bomRouter.put('/:id', async (req, res) => {
+  try {
+    const { quantity, notes } = req.body;
+    const result = await pool.query(
+      'UPDATE bom SET quantity=$1, notes=$2 WHERE id=$3 RETURNING *',
+      [parseFloat(quantity)||1, notes||null, req.params.id]
+    );
+    res.json(result.rows[0]);
+  } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
 const mfgRouter = express.Router();
