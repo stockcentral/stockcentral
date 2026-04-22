@@ -4,10 +4,10 @@ import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { Plus, Edit, Trash2, Upload, Download, X, Search } from 'lucide-react';
 
-const EMPTY = { name:'', company_name:'', email:'', phone:'', address:'', website:'', notes:'', sales_rep_name:'', sales_rep_email:'', sales_rep_phone:'' };
+const EMPTY = { name:'', company_name:'', email:'', phone:'', address:'', city:'', state:'', zip:'', website:'', notes:'', sales_rep_name:'', sales_rep_email:'', sales_rep_phone:'', net_terms:'' };
 
 export function AddVendorPopup({ onCreated, onClose }) {
-  const [form, setForm] = useState({ name:'', company_name:'', sales_rep_name:'', sales_rep_email:'', sales_rep_phone:'' });
+  const [form, setForm] = useState({ name:'', company_name:'', sales_rep_name:'', sales_rep_email:'', sales_rep_phone:'', net_terms:'' });
   const [saving, setSaving] = useState(false);
   const handleSave = async () => {
     if (!form.name.trim()) return toast.error('Vendor name is required');
@@ -27,6 +27,19 @@ export function AddVendorPopup({ onCreated, onClose }) {
             <input value={form[f]||''} onChange={e=>setForm(v=>({...v,[f]:e.target.value}))} className="form-input" style={{width:'100%',boxSizing:'border-box'}}/>
           </div>
         ))}
+        <div style={{marginBottom:12}}>
+          <label style={{display:'block',fontSize:12,opacity:.6,marginBottom:4}}>Net Terms</label>
+          <select value={form.net_terms||''} onChange={e=>setForm(v=>({...v,net_terms:e.target.value}))} className="form-input" style={{width:'100%',boxSizing:'border-box'}}>
+            <option value="">— Select —</option>
+            <option value="Due on Receipt">Due on Receipt</option>
+            <option value="Net 15">Net 15</option>
+            <option value="Net 30">Net 30</option>
+            <option value="Net 45">Net 45</option>
+            <option value="Net 60">Net 60</option>
+            <option value="Net 90">Net 90</option>
+            <option value="2/10 Net 30">2/10 Net 30</option>
+          </select>
+        </div>
         <div style={{display:'flex',gap:8,marginTop:16}}>
           <button className="btn btn-ghost" onClick={onClose} style={{flex:1}}>Cancel</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{flex:1}}>{saving?'Saving...':'Add Vendor'}</button>
@@ -73,7 +86,6 @@ export default function Vendors() {
 
   const openAdd = () => { setForm(EMPTY); setEditing(null); setIsDirty(false); setShowModal(true); };
   const openEdit = (v) => { setForm({...EMPTY,...v}); setEditing(v.id); setIsDirty(false); setShowModal(true); };
-
   const handleChange = (e) => { setForm(f=>({...f,[e.target.name]:e.target.value})); setIsDirty(true); };
 
   const attemptClose = () => {
@@ -98,7 +110,7 @@ export default function Vendors() {
   };
 
   const downloadSampleCSV = () => {
-    const csv = 'name,company_name,email,phone,sales_rep_name,sales_rep_email,sales_rep_phone\nAcme Supplies,Acme Corp,info@acme.com,555-1234,John Smith,john@acme.com,555-5678';
+    const csv = 'name,company_name,email,phone,sales_rep_name,sales_rep_email,sales_rep_phone,net_terms\nAcme Supplies,Acme Corp,info@acme.com,555-1234,John Smith,john@acme.com,555-5678,Net 30';
     const blob = new Blob([csv],{type:'text/csv'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'vendors_template.csv'; a.click();
   };
@@ -122,6 +134,8 @@ export default function Vendors() {
     </div>
   );
 
+  const NET_TERMS = ['Due on Receipt','Net 15','Net 30','Net 45','Net 60','Net 90','2/10 Net 30'];
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -140,7 +154,7 @@ export default function Vendors() {
       {loading ? <div className="loading">Loading...</div> : (
         <div className="table-container">
           <table className="data-table">
-            <thead><tr><th>Vendor Name</th><th>Company</th><th>Email</th><th>Phone</th><th>Sales Rep</th><th>Rep Email</th><th>Rep Phone</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Vendor Name</th><th>Company</th><th>Email</th><th>Phone</th><th>Sales Rep</th><th>Rep Email</th><th>Net Terms</th><th>Actions</th></tr></thead>
             <tbody>
               {filtered.map(v=>(
                 <tr key={v.id} onClick={()=>openEdit(v)} style={{cursor:'pointer'}}
@@ -152,10 +166,8 @@ export default function Vendors() {
                   <td>{v.phone||'—'}</td>
                   <td>{v.sales_rep_name||'—'}</td>
                   <td>{v.sales_rep_email||'—'}</td>
-                  <td>{v.sales_rep_phone||'—'}</td>
-                  <td>
-                    <button className="btn-icon danger" onClick={e=>handleDelete(v.id,e)}><Trash2 size={14}/></button>
-                  </td>
+                  <td>{v.net_terms ? <span style={{fontSize:11,padding:'2px 8px',borderRadius:8,background:'rgba(99,102,241,.15)',color:'#818cf8',fontWeight:600}}>{v.net_terms}</span> : '—'}</td>
+                  <td><button className="btn-icon danger" onClick={e=>handleDelete(v.id,e)}><Trash2 size={14}/></button></td>
                 </tr>
               ))}
               {filtered.length===0&&<tr><td colSpan={8} style={{textAlign:'center',padding:32,opacity:.5}}>No vendors found</td></tr>}
@@ -178,6 +190,17 @@ export default function Vendors() {
                 <Field name="address" label="Address"/>
                 <Field name="website" label="Website"/>
               </div>
+
+              <div style={{fontSize:12,fontWeight:600,textTransform:'uppercase',opacity:.5,margin:'20px 0 12px'}}>Payment Terms</div>
+              <div className="form-group">
+                <label className="form-label">Net Terms</label>
+                <select name="net_terms" value={form.net_terms||''} onChange={handleChange} className="form-input">
+                  <option value="">— Not specified —</option>
+                  {NET_TERMS.map(t=><option key={t} value={t}>{t}</option>)}
+                </select>
+                <div style={{fontSize:11,opacity:.4,marginTop:4}}>This will be included in emails to this vendor when Net Terms is enabled in Email Template settings.</div>
+              </div>
+
               <div style={{fontSize:12,fontWeight:600,textTransform:'uppercase',opacity:.5,margin:'20px 0 12px'}}>Sales Representative</div>
               <div className="form-grid-2">
                 <Field name="sales_rep_name" label="Sales Rep Name"/>
