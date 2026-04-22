@@ -286,7 +286,7 @@ export default function Quotes() {
 
             <div className="modal-body">
               {/* Header fields — always visible */}
-              <div className="form-grid-2" style={{marginBottom:16}}>
+              <div className="form-grid-2" style={{marginBottom:16,marginTop:8}}>
                 <div className="form-group">
                   <label className="form-label">Vendor <span style={{color:'#ef4444'}}>*</span></label>
                   <VendorSelect name="vendor_id" value={form.vendor_id} onChange={handleChange} className="form-input"/>
