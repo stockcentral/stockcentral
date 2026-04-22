@@ -251,7 +251,9 @@ export default function Quotes() {
                   <td style={{fontSize:12,opacity:.7}}>{q.item_count||0} items</td>
                   <td>${parseFloat(q.total_amount||0).toFixed(2)}</td>
                   <td style={{fontSize:12}}>{new Date(q.created_at).toLocaleDateString()}</td>
-                  <td><button className="btn-icon danger" onClick={e=>handleDelete(q.id,e)} style={{opacity:.4}}>✕</button></td>
+                  <td onClick={e=>e.stopPropagation()}>
+                    <button onClick={e=>handleDelete(q.id,e)} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',fontSize:16,padding:'4px 8px',borderRadius:4,opacity:.7}} title="Delete quote">✕</button>
+                  </td>
                 </tr>
               ))}
               {filtered.length===0&&<tr><td colSpan={7} style={{textAlign:'center',padding:32,opacity:.5}}>No quotes found</td></tr>}
