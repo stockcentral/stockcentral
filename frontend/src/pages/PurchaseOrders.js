@@ -206,6 +206,12 @@ export default function PurchaseOrders() {
                   {selectedPO.vendor_name} · Created {new Date(selectedPO.created_at).toLocaleDateString()}
                   {selectedPO.expected_date && ` · Expected ${new Date(selectedPO.expected_date).toLocaleDateString()}`}
                 </div>
+                {(detail?.source_quote_number || selectedPO.source_quote_number) && (
+                  <div style={{marginTop:6,display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:6,background:'rgba(99,102,241,.12)',border:'1px solid rgba(99,102,241,.25)',fontSize:12}}>
+                    <span style={{opacity:.6}}>Converted from quote</span>
+                    <span style={{color:'#818cf8',fontWeight:700}}>{detail?.source_quote_number || selectedPO.source_quote_number}</span>
+                  </div>
+                )}
               </div>
               <button className="modal-close" onClick={closePO}><X size={18}/></button>
             </div>
