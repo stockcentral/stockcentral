@@ -42,7 +42,7 @@ router.get('/warranty', async (req, res) => {
 // General settings
 router.get('/general', async (req, res) => {
   try {
-    const keys = ['cost_update_mode','cost_calculation_method','cost_avg_days','cost_avg_type','archive_sync','shopify_push_mode','ticket_email','rma_status_colors'];
+    const keys = ['cost_update_mode','cost_calculation_method','cost_avg_days','cost_avg_type','archive_sync','shopify_push_mode','ticket_email','rma_status_colors','bom_qty_mode'];
     const result = await pool.query(`SELECT key, value FROM settings WHERE key = ANY($1)`, [keys]);
     const map = {};
     result.rows.forEach(r => { map[r.key] = r.value; });
